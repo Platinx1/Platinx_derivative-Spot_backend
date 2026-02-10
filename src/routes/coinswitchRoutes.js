@@ -4,26 +4,20 @@ const {
   getSinglePairTicker,
   getAllPairsTicker,
   getSpecificPairs,
-  getTopPairsByVolume,
-  getPriceStats,
-  comparePairs,
-  getMarketSummary,
-} = require("../controllers/user/coinswitch/coinswitchController");
+} = require("../controllers/user/coinswitch/coinswitchSpotController");
+const { getCandles } = require("../controllers/user/coinswitch/coinswitchSpotCandles");
 
 const router = express.Router();
 
 // 🔌 Connection test
 router.get("/ping", ping);
 
-// 📊 Ticker endpoints
-router.get("/ticker/single", getSinglePairTicker);
-router.get("/ticker/all", getAllPairsTicker);
-router.get("/ticker/specific", getSpecificPairs);
-router.get("/ticker/top", getTopPairsByVolume);
+// 📊spot Ticker endpoints
+router.get("/spot/ticker/single", getSinglePairTicker);
+router.get("/spot/ticker/all", getAllPairsTicker);
+router.get("/spot/ticker/specific", getSpecificPairs);
 
-// 📈 Analysis endpoints
-router.get("/stats/price", getPriceStats);
-router.get("/stats/compare", comparePairs);
-router.get("/stats/market-summary", getMarketSummary);
+//candles 
+router.get("/spot/candles", getCandles);
 
 module.exports = router;

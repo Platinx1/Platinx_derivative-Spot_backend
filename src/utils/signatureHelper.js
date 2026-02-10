@@ -19,7 +19,7 @@ function generateSignature(method, fullPathWithQuery, epochMs, apiSecretHex) {
 }
 
 
-function getAuthHeaders(method, path, queryParams = {}, apiKey, apiSecretHex) {
+function getAuthHeaders(method, path, queryParams = {}, apiKey=process.env.API_KEY, apiSecretHex=process.env.API_SECRET) {
 
   const epochMs = Date.now().toString();
 
