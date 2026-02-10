@@ -19,6 +19,8 @@
     "dotenv": "^16.5.0",
     "eslint": "^8.57.1",
     "express": "^5.1.0",
+    "@noble/ed25519": "^3.0.0",
+    "@noble/hashes": "^2.0.1",
    
     "jsonwebtoken": "^9.0.2",
     "moment-timezone": "^0.6.0",
