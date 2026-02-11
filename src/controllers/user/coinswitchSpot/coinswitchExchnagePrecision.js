@@ -2,25 +2,15 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const { getAuthHeaders } = require("../../../utils/signatureHelper");
+const { buildUrlAndParams } = require("../../../utils/urlAndParamsHelper");
 
 const ENDPOINTS = {
   EXCHANGE_PRECISION: "/trade/api/v2/exchangePrecision",
 };
 
-function buildUrlAndParams(basePath, queryObj = {}, bodyObj = null) {
-  const queryString = new URLSearchParams(queryObj).toString();
-  const fullPath = queryString ? `${basePath}?${queryString}` : basePath;
-  const fullUrl = `${process.env.BASE_URL}${fullPath}`;
-  
-  return { fullUrl, queryObj, fullPath, bodyObj };
-}
-
 // 📋 Get Exchange Precision (precision, min/max qty, etc. per symbol)
 exports.getExchangePrecision = catchAsync(async (req, res, next) => {
-  const { 
-    exchange = "coinswitchx", 
-    symbol 
-  } = req.body;   // ← POST → body (as per API)
+  const { exchange = "coinswitchx", symbol } = req.body;
 
   // Validate exchange (required)
   const validExchanges = ["coinswitchx", "wazirx", "c2c1", "c2c2"];
@@ -47,6 +37,8 @@ exports.getExchangePrecision = catchAsync(async (req, res, next) => {
   const { fullUrl, fullPath } = buildUrlAndParams(path, {}, bodyPayload);
 
   const headers = getAuthHeaders(method, fullPath, {}); // no query params
+
+  console.log("headers===========================================:", headers);
 
   const response = await axios({
     method,

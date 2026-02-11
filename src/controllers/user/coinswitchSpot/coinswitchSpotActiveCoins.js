@@ -2,20 +2,12 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const { getAuthHeaders } = require("../../../utils/signatureHelper");
+const { buildUrlAndParams } = require("../../../utils/urlAndParamsHelper");
 
 const ENDPOINTS = {
  ACTIVE_COINS: "/trade/api/v2/coins",
 
 };
-
-function buildUrlAndParams(basePath, queryObj = {}) {
-  const queryString = new URLSearchParams(queryObj).toString();
-  const fullPath = queryString ? `${basePath}?${queryString}` : basePath;
-  const fullUrl = `${process.env.BASE_URL}${fullPath}`;
-  return { fullUrl, queryObj, fullPath };
-}
-
-
 
 // 📋 Get Supported / Active Coins
 exports.getSupportedCoins = catchAsync(async (req, res, next) => {
@@ -39,6 +31,8 @@ exports.getSupportedCoins = catchAsync(async (req, res, next) => {
   const { fullUrl } = buildUrlAndParams(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
+
+  console.log("headers===========================================:", headers);
 
   const response = await axios({ method, url: fullUrl, headers });
 

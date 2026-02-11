@@ -22,20 +22,18 @@ app.use(morgan("dev"));
 app.use(cookieParser());
 
 // testing middleware
-app.use("/", async (req, res, next) => {
-  // console.log(req.body);
-  next();
-});
+// app.use("/", async (req, res, next) => {
+//   // console.log(req.body);
+//   next();
+// });
 
 //routes
 appRoutes(app);
 
 // unhandle route middleware
-// app.all("*", (req, res, next) => {
-//   return next(
-//     new AppError(`The route ${req.originalUrl} not run on this server.`, 404)
-//   );
-// });
+app.use((req, res, next) => {
+  next(new AppError(`The route ${req.originalUrl} not found on this server`, 404));
+});
 
 // global error middleware
 app.use(globalErrorHandler);
