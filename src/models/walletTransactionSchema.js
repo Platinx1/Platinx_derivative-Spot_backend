@@ -1,24 +1,34 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { D, decimalGetter } = require("../../utils/decimal");
 
 const walletTransactionSchema = new Schema(
   {
-    // 🔹 Internal linking
-    userId: {
+    // 🔹 Ownership
+    subAccountId: {
       type: Schema.Types.ObjectId,
+      ref: "SubAccount",
       required: true,
       index: true,
     },
 
-    // 🔹 User snapshot (microservice safe)
-    user: {
-      id: {
-        type: Schema.Types.ObjectId,
-        required: true,
-      },
-      name: String,
-      email: String,
-      role: String,
+    userId: {
+      type: Schema.Types.ObjectId,
+      index: true,
+    },
+
+    // 🔹 Asset Info
+    asset: {
+      type: String, // BTC, USDT, ETH
+      required: true,
+      index: true,
+    },
+
+    walletType: {
+      type: String,
+      enum: ["FUNDING", "SPOT", "FUTURES"],
+      required: true,
+      index: true,
     },
 
     // 🔹 Unique internal transaction ID
@@ -29,23 +39,20 @@ const walletTransactionSchema = new Schema(
       index: true,
     },
 
+    // 🔹 Business Type
     type: {
       type: String,
       enum: [
         "DEPOSIT",
         "WITHDRAW",
-        "TRANSFER",
+        "INTERNAL_TRANSFER",
         "SPOT_TRADE",
         "FUTURES_TRADE",
         "FEE",
+        "FUNDING_FEE",
         "LIQUIDATION",
+        "ADJUSTMENT",
       ],
-      required: true,
-    },
-
-    walletType: {
-      type: String,
-      enum: ["FUNDING", "SPOT", "FUTURES"],
       required: true,
     },
 
@@ -55,36 +62,39 @@ const walletTransactionSchema = new Schema(
       required: true,
     },
 
-    amount: {
-      type: Schema.Types.Decimal128,
-      required: true,
-    },
+    // 🔹 Amount Impact
+    amount: D(),
 
-    beforeBalance: {
-      type: Schema.Types.Decimal128,
-      required: true,
-    },
+    // 🔹 Balance Snapshots (AUDIT CRITICAL)
+    beforeBalance: D(),
+    afterBalance: D(),
 
-    balanceAfter: {
-      type: Schema.Types.Decimal128,
-      required: true,
-    },
+    beforeLocked: D(),
+    afterLocked: D(),
 
+    // 🔹 Reference Linking
     referenceId: {
-      // orderId / withdrawId / transferId
-      type: String,
+      type: String, // orderId / withdrawId / positionId
       index: true,
     },
 
-    description: {
-      type: String,
+    referenceModel: {
+      type: String, // "SpotOrder", "FuturesPosition"
     },
+
+    description: String,
 
     status: {
       type: String,
-      enum: ["PENDING", "COMPLETED", "FAILED"],
+      enum: ["PENDING", "COMPLETED", "FAILED", "REVERSED"],
       default: "COMPLETED",
       index: true,
+    },
+
+    // 🔹 System safety
+    meta: {
+      ip: String,
+      source: String, // API / ADMIN / SYSTEM
     },
   },
   {
@@ -95,20 +105,21 @@ const walletTransactionSchema = new Schema(
 );
 
 
-// 🔥 Decimal getter
-function decimalGetter(value) {
-  if (!value) return value;
-  return value.toString();
-}
+[
+  "amount",
+  "beforeBalance",
+  "afterBalance",
+  "beforeLocked",
+  "afterLocked",
+].forEach((field) => {
+  walletTransactionSchema.path(field).get(decimalGetter);
+});
 
-walletTransactionSchema.path("amount").get(decimalGetter);
-walletTransactionSchema.path("beforeBalance").get(decimalGetter);
-walletTransactionSchema.path("balanceAfter").get(decimalGetter);
+walletTransactionSchema.index({ subAccountId: 1, createdAt: -1 });
+walletTransactionSchema.index({ subAccountId: 1, asset: 1 });
+walletTransactionSchema.index({ referenceId: 1 });
+walletTransactionSchema.index({ type: 1, createdAt: -1 });
 
-
-// 🔥 Useful indexes
-walletTransactionSchema.index({ userId: 1, createdAt: -1 });
-walletTransactionSchema.index({ userId: 1, walletType: 1 });
 
 
 const WalletTransaction = mongoose.model(

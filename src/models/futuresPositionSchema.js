@@ -1,29 +1,29 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { D, decimalGetter } = require("../../utils/decimal");
 
 const futuresPositionSchema = new Schema(
   {
-    // 🔹 Internal linking
-    userId: {
+    // 🔹 Ownership
+    subAccountId: {
       type: Schema.Types.ObjectId,
+      ref: "SubAccount",
       required: true,
       index: true,
     },
 
-    // 🔹 User Snapshot (microservice safe)
-    user: {
-      id: {
-        type: Schema.Types.ObjectId,
-        required: true,
-      },
-      name: String,
-      email: String,
-      role: String,
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
     },
 
+    // 🔹 Market
     symbol: {
       type: String,
       required: true,
+      uppercase: true,
       index: true,
     },
 
@@ -33,25 +33,18 @@ const futuresPositionSchema = new Schema(
       required: true,
     },
 
-    quantity: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    // 🔹 Core Position
+    quantity: D(),              // always positive
 
-    entryPrice: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    entryPrice: D(),
 
-    markPrice: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    markPrice: D(),
 
     leverage: {
       type: Number,
       required: true,
       min: 1,
+      max: 125,
     },
 
     marginMode: {
@@ -60,67 +53,84 @@ const futuresPositionSchema = new Schema(
       default: "ISOLATED",
     },
 
-    margin: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
+    // 🔹 Margin
+    initialMargin: D(),
+
+    margin: D(),
+
+    maintenanceMargin: D(),
+
+    isolatedWalletBalance: D(),   // important for isolated mode
+
+    // 🔹 PnL
+    unrealizedPnl: D(),
+
+    realizedPnl: D(),
+
+    fundingFeeAccrued: D(),
+
+    // 🔹 Risk
+    liquidationPrice: D(),
+
+    bankruptcyPrice: D(),
+
+    autoDeleveragingEligible: {
+      type: Boolean,
+      default: false,
     },
 
-    maintenanceMargin: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    unrealizedPnl: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    realizedPnl: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    liquidationPrice: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
+    // 🔹 State
     status: {
       type: String,
-      enum: ["OPEN", "CLOSED"],
+      enum: ["OPEN", "CLOSED", "LIQUIDATED"],
       default: "OPEN",
+      index: true,
+    },
+
+    // 🔹 Exchange Mapping
+    exchangePositionId: {
+      type: String,
       index: true,
     },
   },
   {
     timestamps: true,
+    versionKey: false,
     toJSON: { getters: true },
     toObject: { getters: true },
   }
 );
 
 
-// 🔥 Decimal getter
-function decimalGetter(value) {
-  if (!value) return value;
-  return value.toString();
-}
+[
+  "quantity",
+  "entryPrice",
+  "markPrice",
+  "initialMargin",
+  "margin",
+  "maintenanceMargin",
+  "isolatedWalletBalance",
+  "unrealizedPnl",
+  "realizedPnl",
+  "fundingFeeAccrued",
+  "liquidationPrice",
+  "bankruptcyPrice",
+].forEach((field) => {
+  futuresPositionSchema.path(field).get(decimalGetter);
+});
 
-futuresPositionSchema.path("quantity").get(decimalGetter);
-futuresPositionSchema.path("entryPrice").get(decimalGetter);
-futuresPositionSchema.path("markPrice").get(decimalGetter);
-futuresPositionSchema.path("margin").get(decimalGetter);
-futuresPositionSchema.path("maintenanceMargin").get(decimalGetter);
-futuresPositionSchema.path("unrealizedPnl").get(decimalGetter);
-futuresPositionSchema.path("realizedPnl").get(decimalGetter);
-futuresPositionSchema.path("liquidationPrice").get(decimalGetter);
-
-
-// 🔥 One active position per user per symbol per side
+// One active position per symbol per side per subaccount
 futuresPositionSchema.index(
-  { userId: 1, symbol: 1, positionSide: 1 },
+  { subAccountId: 1, symbol: 1, positionSide: 1 },
   { unique: true }
 );
+
+// Fast user dashboard queries
+futuresPositionSchema.index({ userId: 1, status: 1 });
+
+// Market risk engine scan
+futuresPositionSchema.index({ symbol: 1, status: 1 });
+
 
 
 const FuturesPosition = mongoose.model(

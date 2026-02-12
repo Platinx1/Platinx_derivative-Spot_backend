@@ -1,24 +1,21 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { D, decimalGetter } = require("../../utils/decimal");
 
 const spotOrderSchema = new Schema(
   {
-    // 🔹 Internal user linking
-    userId: {
+    // 🔹 Owner
+    subAccountId: {
       type: Schema.Types.ObjectId,
+      ref: "SubAccount",
       required: true,
       index: true,
     },
 
-    // 🔹 User Snapshot (microservice safe)
-    user: {
-      id: {
-        type: Schema.Types.ObjectId,
-        required: true,
-      },
-      name: String,
-      email: String,
-      role: String,
+    // optional fast filtering
+    userId: {
+      type: Schema.Types.ObjectId,
+      index: true,
     },
 
     symbol: {
@@ -45,48 +42,46 @@ const spotOrderSchema = new Schema(
       default: "GTC",
     },
 
-    price: {
-      type: Schema.Types.Decimal128,
+    // 🔹 Pricing
+    price: D(), // required for LIMIT
+
+    quantity: D(), // base asset quantity
+
+    quoteOrderQty: D(), // used for MARKET BUY (optional)
+
+    // 🔹 Execution Tracking
+    filledQuantity: D(),
+
+    remainingQuantity: D(),
+
+    avgPrice: D(),
+
+    // 🔹 Wallet locking
+    lockedAmount: D(), // quote asset locked
+
+    // 🔹 Fee Breakdown
+    fee: D(),
+    feeAsset: {
+      type: String,
+      default: "USDT",
     },
 
-    quantity: {
-      type: Schema.Types.Decimal128,
-      required: true,
-    },
-
-    amount: {
-      // total INR used for buy orders
-      type: Schema.Types.Decimal128,
-    },
-
-    lockedAmount: {
-      // INR locked in wallet for BUY orders
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    filledQuantity: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    avgPrice: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    fee: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
+    // 🔹 Order State
     status: {
       type: String,
-      enum: ["OPEN", "PARTIALLY_FILLED", "FILLED", "CANCELLED"],
+      enum: [
+        "OPEN",
+        "PARTIALLY_FILLED",
+        "FILLED",
+        "CANCELLED",
+        "REJECTED",
+        "EXPIRED",
+      ],
       default: "OPEN",
       index: true,
     },
 
+    // 🔹 Exchange Mapping
     clientOrderId: {
       type: String,
       index: true,
@@ -96,6 +91,9 @@ const spotOrderSchema = new Schema(
       type: String,
       index: true,
     },
+
+    // 🔹 Matching engine info
+    executedQuoteQty: D(),
   },
   {
     timestamps: true,
@@ -104,25 +102,24 @@ const spotOrderSchema = new Schema(
   }
 );
 
+[
+  "price",
+  "quantity",
+  "quoteOrderQty",
+  "filledQuantity",
+  "remainingQuantity",
+  "avgPrice",
+  "lockedAmount",
+  "fee",
+  "executedQuoteQty",
+].forEach((field) => {
+  spotOrderSchema.path(field).get(decimalGetter);
+});
 
-// 🔥 Decimal getter
-function decimalGetter(value) {
-  if (!value) return value;
-  return value.toString();
-}
+spotOrderSchema.index({ subAccountId: 1, symbol: 1 });
+spotOrderSchema.index({ subAccountId: 1, status: 1 });
+spotOrderSchema.index({ clientOrderId: 1, subAccountId: 1 }, { unique: true });
 
-spotOrderSchema.path("price").get(decimalGetter);
-spotOrderSchema.path("quantity").get(decimalGetter);
-spotOrderSchema.path("amount").get(decimalGetter);
-spotOrderSchema.path("lockedAmount").get(decimalGetter);
-spotOrderSchema.path("filledQuantity").get(decimalGetter);
-spotOrderSchema.path("avgPrice").get(decimalGetter);
-spotOrderSchema.path("fee").get(decimalGetter);
-
-
-// 🔥 Useful indexes for dashboard
-spotOrderSchema.index({ userId: 1, symbol: 1 });
-spotOrderSchema.index({ userId: 1, status: 1 });
 
 
 const SpotOrder = mongoose.model("SpotOrder", spotOrderSchema);

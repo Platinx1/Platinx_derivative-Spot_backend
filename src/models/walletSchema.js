@@ -1,64 +1,61 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { D, decimalGetter } = require("../../utils/decimal");
 
 const walletSchema = new Schema(
   {
-    // 🔹 Internal linking
-    userId: {
+    // 🔹 Owner
+    subAccountId: {
       type: Schema.Types.ObjectId,
+      ref: "SubAccount",
       required: true,
-      unique: true,
       index: true,
     },
 
-    // 🔹 User snapshot (microservice safe)
-    user: {
-      id: {
-        type: Schema.Types.ObjectId,
-        required: true,
-      },
-      name: String,
-      email: String,
-      role: String,
+    // optional fast filtering
+    userId: {
+      type: Schema.Types.ObjectId,
+      index: true,
     },
 
-    // 🔹 Funding Wallet (Deposit / Withdraw)
-    fundingBalance: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
+    // 🔹 Asset (VERY IMPORTANT)
+    asset: {
+      type: String, // BTC, USDT, ETH
+      required: true,
+      index: true,
     },
 
-    // 🔹 Spot Wallet
-    spotBalance: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
+    // 🔹 Total balance
+    balance: D(),
+
+    // 🔹 Locked (orders / margin)
+    locked: D(),
+
+    // 🔹 Available (virtual field calculated in service layer)
+    // available = balance - locked
+
+    // 🔹 Wallet Type
+    walletType: {
+      type: String,
+      enum: ["FUNDING", "SPOT", "FUTURES"],
+      required: true,
+      index: true,
     },
 
-    spotLocked: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    // 🔹 Futures Specific (only used when walletType = FUTURES)
+    crossMarginBalance: D(),
 
-    // 🔹 Futures Wallet
-    futuresBalance: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    futuresLocked: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    isolatedMarginBalance: D(),
 
     // 🔹 PnL Tracking
-    totalRealizedPnl: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    totalRealizedPnl: D(),
 
-    totalUnrealizedPnl: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
+    totalUnrealizedPnl: D(),
+
+    // 🔹 Risk Flags
+    isLiquidationBlocked: {
+      type: Boolean,
+      default: false,
     },
   },
   {
@@ -68,21 +65,22 @@ const walletSchema = new Schema(
   }
 );
 
+[
+  "balance",
+  "locked",
+  "crossMarginBalance",
+  "isolatedMarginBalance",
+  "totalRealizedPnl",
+  "totalUnrealizedPnl",
+].forEach((field) => {
+  walletSchema.path(field).get(decimalGetter);
+});
 
-// 🔥 Decimal getter
-function decimalGetter(value) {
-  if (!value) return value;
-  return value.toString();
-}
 
-walletSchema.path("fundingBalance").get(decimalGetter);
-walletSchema.path("spotBalance").get(decimalGetter);
-walletSchema.path("spotLocked").get(decimalGetter);
-walletSchema.path("futuresBalance").get(decimalGetter);
-walletSchema.path("futuresLocked").get(decimalGetter);
-walletSchema.path("totalRealizedPnl").get(decimalGetter);
-walletSchema.path("totalUnrealizedPnl").get(decimalGetter);
-
+walletSchema.index(
+  { subAccountId: 1, asset: 1, walletType: 1 },
+  { unique: true }
+);
 
 const Wallet = mongoose.model("Wallet", walletSchema);
 

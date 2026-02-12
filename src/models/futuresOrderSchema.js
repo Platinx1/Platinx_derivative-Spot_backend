@@ -1,29 +1,29 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { D, decimalGetter } = require("../../utils/decimal");
 
 const futuresOrderSchema = new Schema(
   {
-    // 🔹 Mandatory userId (internal linking)
+    // 🔹 Ownership
     userId: {
       type: Schema.Types.ObjectId,
+      ref: "User",
       required: true,
       index: true,
     },
 
-    // 🔹 User Snapshot (microservice safe)
-    user: {
-      id: {
-        type: Schema.Types.ObjectId,
-        required: true,
-      },
-      name: String,
-      email: String,
-      role: String,
+    subAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: "SubAccount",
+      required: true,
+      index: true,
     },
 
+    // 🔹 Market
     symbol: {
       type: String,
       required: true,
+      uppercase: true,
       index: true,
     },
 
@@ -31,6 +31,7 @@ const futuresOrderSchema = new Schema(
       type: String,
       enum: ["BUY", "SELL"],
       required: true,
+      index: true,
     },
 
     positionSide: {
@@ -41,23 +42,35 @@ const futuresOrderSchema = new Schema(
 
     type: {
       type: String,
-      enum: ["MARKET", "LIMIT"],
+      enum: ["MARKET", "LIMIT", "STOP_MARKET", "STOP_LIMIT"],
       required: true,
     },
 
-    price: {
-      type: Schema.Types.Decimal128,
+    timeInForce: {
+      type: String,
+      enum: ["GTC", "IOC", "FOK"],
+      default: "GTC",
     },
 
-    quantity: {
-      type: Schema.Types.Decimal128,
-      required: true,
-    },
+    // 🔹 Pricing
+    price: D(),
+    stopPrice: D(),          // for stop orders
+    quantity: D(),
 
+    // 🔹 Execution Tracking
+    filledQuantity: D(),
+    avgPrice: D(),
+
+    totalTradeValue: D(),
+    totalExchangeFee: D(),
+    totalPlatformFee: D(),
+
+    // 🔹 Margin
     leverage: {
       type: Number,
       required: true,
       min: 1,
+      max: 125,
     },
 
     marginMode: {
@@ -66,29 +79,26 @@ const futuresOrderSchema = new Schema(
       default: "ISOLATED",
     },
 
-    marginUsed: {
-      type: Schema.Types.Decimal128,
-      required: true,
-    },
+    marginUsed: D(),
 
-    filledQuantity: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
+    maintenanceMargin: D(),      // snapshot
+    liquidationPrice: D(),       // snapshot
 
-    avgPrice: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
-    fee: {
-      type: Schema.Types.Decimal128,
-      default: () => mongoose.Types.Decimal128.fromString("0"),
-    },
-
+    // 🔹 Flags
     reduceOnly: {
       type: Boolean,
       default: false,
+    },
+
+    isLiquidation: {
+      type: Boolean,
+      default: false,
+    },
+
+    orderSource: {
+      type: String,
+      enum: ["WEB", "APP", "API", "SYSTEM"],
+      default: "WEB",
     },
 
     clientOrderId: {
@@ -96,43 +106,60 @@ const futuresOrderSchema = new Schema(
       index: true,
     },
 
-    status: {
+    exchangeOrderId: {
       type: String,
-      enum: ["OPEN", "PARTIALLY_FILLED", "FILLED", "CANCELLED"],
-      default: "OPEN",
       index: true,
     },
 
-    exchangeOrderId: {
+    status: {
       type: String,
+      enum: [
+        "OPEN",
+        "PARTIALLY_FILLED",
+        "FILLED",
+        "CANCELLED",
+        "REJECTED",
+        "EXPIRED",
+      ],
+      default: "OPEN",
       index: true,
     },
   },
   {
     timestamps: true,
+    versionKey: false,
     toJSON: { getters: true },
     toObject: { getters: true },
   }
 );
 
+[
+  "price",
+  "stopPrice",
+  "quantity",
+  "filledQuantity",
+  "avgPrice",
+  "totalTradeValue",
+  "totalExchangeFee",
+  "totalPlatformFee",
+  "marginUsed",
+  "maintenanceMargin",
+  "liquidationPrice",
+].forEach((field) => {
+  futuresOrderSchema.path(field).get(decimalGetter);
+});
 
-// 🔥 Decimal to string getter
-function decimalGetter(value) {
-  if (!value) return value;
-  return value.toString();
-}
+// Order book queries
+futuresOrderSchema.index({ symbol: 1, status: 1 });
 
-futuresOrderSchema.path("price").get(decimalGetter);
-futuresOrderSchema.path("quantity").get(decimalGetter);
-futuresOrderSchema.path("marginUsed").get(decimalGetter);
-futuresOrderSchema.path("filledQuantity").get(decimalGetter);
-futuresOrderSchema.path("avgPrice").get(decimalGetter);
-futuresOrderSchema.path("fee").get(decimalGetter);
+// User order history
+futuresOrderSchema.index({ userId: 1, createdAt: -1 });
 
+// Sub account isolation
+futuresOrderSchema.index({ subAccountId: 1, createdAt: -1 });
 
-// 🔥 Compound indexes (fast query for user dashboard)
-futuresOrderSchema.index({ userId: 1, symbol: 1 });
-futuresOrderSchema.index({ userId: 1, status: 1 });
+// Exchange sync
+futuresOrderSchema.index({ exchangeOrderId: 1 });
 
 
 const FuturesOrder = mongoose.model("FuturesOrder", futuresOrderSchema);

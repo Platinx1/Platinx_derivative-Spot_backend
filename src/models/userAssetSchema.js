@@ -1,16 +1,24 @@
 const mongoose = require("mongoose");
+const { Schema } = mongoose;
+const { D, decimalGetter } = require("../../utils/decimal");
 
-const userAssetSchema = new mongoose.Schema(
+const userAssetSchema = new Schema(
   {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    // 🔹 Ownership (Sub-account based)
+    subAccountId: {
+      type: Schema.Types.ObjectId,
+      ref: "SubAccount",
       required: true,
       index: true,
     },
 
+    userId: {
+      type: Schema.Types.ObjectId,
+      index: true,
+    },
+
     asset: {
-      type: String, // BTC, ETH, USDT
+      type: String,
       required: true,
       uppercase: true,
       index: true,
@@ -24,51 +32,48 @@ const userAssetSchema = new mongoose.Schema(
       index: true,
     },
 
-    free: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    // 🔹 Portfolio Snapshot (Derived Data)
 
-    locked: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    totalQuantity: D(), // from wallet.balance
+    lockedQuantity: D(), // from wallet.locked
 
-    total: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    avgBuyPrice: D(),
 
-    avgBuyPrice: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    totalInvested: D(),
 
-    totalInvested: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    realizedPnl: D(),
+    unrealizedPnl: D(),
 
-    realizedPnl: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    lastUpdatedPrice: D(),
 
-    unrealizedPnl: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
-
-    lastUpdatedPrice: {
-      type: mongoose.Schema.Types.Decimal128,
-      default: 0,
-    },
+    // 🔹 Performance metrics
+    pnlPercentage: D(),
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    versionKey: false,
+    toJSON: { getters: true },
+    toObject: { getters: true },
+  },
 );
 
-// Unique per user per wallet per asset
-userAssetSchema.index({ user: 1, asset: 1, walletType: 1 }, { unique: true });
+[
+  "totalQuantity",
+  "lockedQuantity",
+  "avgBuyPrice",
+  "totalInvested",
+  "realizedPnl",
+  "unrealizedPnl",
+  "lastUpdatedPrice",
+  "pnlPercentage",
+].forEach((field) => {
+  userAssetSchema.path(field).get(decimalGetter);
+});
+
+userAssetSchema.index(
+  { subAccountId: 1, asset: 1, walletType: 1 },
+  { unique: true },
+);
 
 const UserAsset = mongoose.model("UserAsset", userAssetSchema);
 
