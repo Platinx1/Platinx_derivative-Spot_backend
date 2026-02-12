@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { D, decimalGetter } = require("../../utils/decimal");
+const { D, decimalGetter } = require("../utils/decimals");
 
 const feeLedgerSchema = new mongoose.Schema(
   {

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-const { D, decimalGetter } = require("../../utils/decimal");
+const { D, decimalGetter } = require("../utils/decimals");
 
 const spotOrderSchema = new Schema(
   {
