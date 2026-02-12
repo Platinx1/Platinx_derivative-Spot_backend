@@ -1,10 +1,13 @@
-// // utils/signatureHelper.js
-const ed25519 = require("@noble/ed25519");
-const { sha512 } = require("@noble/hashes/sha2.js"); // Required for ed25519 in recent versions
-const { TextEncoder } = require("util");
+// const ed25519 = require("@noble/ed25519");
+// const { sha512 } = require("@noble/hashes/sha2.js"); // Required for ed25519 in recent versions
+// const { TextEncoder } = require("util");
 
-// // Required setup for @noble/ed25519 (do this once at module load)
+
+// // Setup noble ed25519
 // ed25519.hashes.sha512 = sha512;
+
+
+
 
 
 // function generateSignature(method, fullPathWithQuery, epochMs, apiSecretHex) {
@@ -49,8 +52,13 @@ const { TextEncoder } = require("util");
 //   getAuthHeaders,
 // };
 
+// module.exports = { getAuthHeaders, generateSignature };
 
 
+
+const ed25519 = require("@noble/ed25519");
+const { sha512 } = require("@noble/hashes/sha2.js"); // Required for ed25519 in recent versions
+const { TextEncoder } = require("util");
 
 
 // Setup noble ed25519
@@ -75,11 +83,51 @@ function generateSignature(message, secretHex) {
   return Buffer.from(sigBytes).toString("hex");
 }
 
+// function getAuthHeaders(
+//   method,
+//   path,                // raw path like "/trade/api/v2/futures/leverage"
+//   queryParams = {},
+//   body = null,         // ← now properly used for POST body
+//   apiKey = process.env.API_KEY,
+//   apiSecret = process.env.API_SECRET
+// ) {
+//   if (!apiKey || !apiSecret) {
+//     throw new Error("API_KEY or API_SECRET not set in env");
+//   }
+
+//   const epoch = Date.now().toString();  // ms string
+
+//   let signingPath = path;
+//   if (Object.keys(queryParams).length > 0) {
+//     const qs = new URLSearchParams(queryParams).toString();
+//     signingPath += "?" + qs;
+//   }
+
+//   const cleanPath = decodeURIComponent(signingPath);
+
+//   let message = method.toUpperCase() + cleanPath + epoch;
+
+//   // Append body for POST/PUT/DELETE if present
+//   if (body && ["POST", "PUT", "DELETE"].includes(method.toUpperCase())) {
+//     const bodyStr = canonicalJson(body);
+//     message += bodyStr;
+//   }
+
+//   const signature = generateSignature(message, apiSecret);
+
+//   return {
+//     "Content-Type": "application/json",
+//     "X-AUTH-APIKEY": apiKey,
+//     "X-AUTH-SIGNATURE": signature,
+//     "X-AUTH-EPOCH": epoch,
+//   };
+// }
+
 function getAuthHeaders(
   method,
   path,                // raw path like "/trade/api/v2/futures/leverage"
   queryParams = {},
-  body = null,         // ← now properly used for POST body
+  body = null,
   apiKey = process.env.API_KEY,
   apiSecret = process.env.API_SECRET
 ) {
@@ -87,15 +135,18 @@ function getAuthHeaders(
     throw new Error("API_KEY or API_SECRET not set in env");
   }
 
-  const epoch = Date.now().toString();  // ms string
+  const epoch = Date.now().toString();
 
+  // Build signing path exactly as it will appear in the URL
   let signingPath = path;
   if (Object.keys(queryParams).length > 0) {
     const qs = new URLSearchParams(queryParams).toString();
     signingPath += "?" + qs;
   }
 
-  const cleanPath = decodeURIComponent(signingPath);
+  // ❌ DON'T decode - the signature should match the exact URL encoding
+  // const cleanPath = decodeURIComponent(signingPath);
+  const cleanPath = signingPath; // Use as-is
 
   let message = method.toUpperCase() + cleanPath + epoch;
 
@@ -104,6 +155,8 @@ function getAuthHeaders(
     const bodyStr = canonicalJson(body);
     message += bodyStr;
   }
+
+  console.log("Signature Message:", message); // Debug log
 
   const signature = generateSignature(message, apiSecret);
 

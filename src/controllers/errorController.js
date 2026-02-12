@@ -1,10 +1,30 @@
 const AppError = require("../utils/AppError");
 
+// const errorDev = (err, req, res) => {
+//   return res.status(err.statusCode).json({
+//     status: err.status,
+//     error: err,
+//     message: err.message,
+//   });
+// };
+
+
 const errorDev = (err, req, res) => {
   return res.status(err.statusCode).json({
     status: err.status,
-    error: err,
+    // ❌ DON'T send the full error object - it may have circular references
+    // error: err,  
     message: err.message,
+    stack: err.stack, // Optional: include stack trace for debugging
+    // If you need error details, extract safe properties only:
+    ...(err.code && { code: err.code }),
+    ...(err.response && { 
+      apiError: {
+        status: err.response.status,
+        statusText: err.response.statusText,
+        data: err.response.data
+      }
+    })
   });
 };
 
