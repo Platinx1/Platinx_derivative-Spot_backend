@@ -5,12 +5,25 @@ const {
   getAllPairsTicker,
   getSpecificPairs,
 } = require("../controllers/user/coinswitchSpot/coinswitchSpotController");
-const { getCandles } = require("../controllers/user/coinswitchSpot/coinswitchSpotCandles");
-const { getSupportedCoins } = require("../controllers/user/coinswitchSpot/coinswitchSpotActiveCoins");
-const { getExchangePrecision } = require("../controllers/user/coinswitchSpot/coinswitchExchnagePrecision");
-const { getTradeInfo } = require("../controllers/user/coinswitchSpot/coinswitchTradeInfo");
-const { updateFuturesLeverage, setFuturesLeverage } = require("../controllers/user/coinswitchFuture/coinswitchUpdateLeverage");
-const { getFuturesLeverage } = require("../controllers/user/coinswitchFuture/coinswithGetLeverage");
+const {
+  getCandles,
+} = require("../controllers/user/coinswitchSpot/coinswitchSpotCandles");
+const {
+  getSupportedCoins,
+} = require("../controllers/user/coinswitchSpot/coinswitchSpotActiveCoins");
+const {
+  getExchangePrecision,
+} = require("../controllers/user/coinswitchSpot/coinswitchExchnagePrecision");
+const {
+  getTradeInfo,
+} = require("../controllers/user/coinswitchSpot/coinswitchTradeInfo");
+const {
+  updateFuturesLeverage,
+  setFuturesLeverage,
+} = require("../controllers/user/coinswitchFuture/coinswitchUpdateLeverage");
+const {
+  getFuturesLeverage,
+} = require("../controllers/user/coinswitchFuture/coinswithGetLeverage");
 
 const router = express.Router();
 
@@ -22,7 +35,7 @@ router.get("/spot/ticker/single", getSinglePairTicker);
 router.get("/spot/ticker/all", getAllPairsTicker);
 router.get("/spot/ticker/specific", getSpecificPairs);
 
-//candles 
+//candles
 router.get("/spot/candles", getCandles);
 
 //active coins
@@ -34,13 +47,8 @@ router.post("/spot/exchangePrecision", getExchangePrecision);
 //trade info
 router.get("/spot/tradeInfo", getTradeInfo);
 
-
-
-
 // Future endpoints (placeholders)
 router.post("/futures/leverage", setFuturesLeverage);
 router.get("/futures/leverage", getFuturesLeverage);
-
-
 
 module.exports = router;

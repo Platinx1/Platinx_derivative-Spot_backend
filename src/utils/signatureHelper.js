@@ -1,58 +1,4 @@
-// const ed25519 = require("@noble/ed25519");
-// const { sha512 } = require("@noble/hashes/sha2.js"); // Required for ed25519 in recent versions
-// const { TextEncoder } = require("util");
 
-
-// // Setup noble ed25519
-// ed25519.hashes.sha512 = sha512;
-
-
-
-
-
-// function generateSignature(method, fullPathWithQuery, epochMs, apiSecretHex) {
-//   const secretKey = Uint8Array.from(Buffer.from(apiSecretHex, "hex"));
-
-//   // Message = METHOD + unquoted path+query + epoch_ms (no body for GET)
-//   const message = method + fullPathWithQuery + epochMs;
-//   const messageBytes = new TextEncoder().encode(message);
-
-//   const signatureBytes = ed25519.sign(messageBytes, secretKey);
-//   return Buffer.from(signatureBytes).toString("hex");
-// }
-
-
-// function getAuthHeaders(method, path, queryParams = {}, apiKey=process.env.API_KEY, apiSecretHex=process.env.API_SECRET) {
-
-//   const epochMs = Date.now().toString();
-
- 
-//   let endpointWithQuery = path;
-//   if (Object.keys(queryParams).length > 0) {
-//     const queryString = new URLSearchParams(queryParams).toString();
-//     endpointWithQuery += (path.includes("?") ? "&" : "?") + queryString;
-//   }
-
-
-//   const unquotedFullPath = decodeURIComponent(endpointWithQuery);
-
- 
-//   const signature = generateSignature(method, unquotedFullPath, epochMs, apiSecretHex);
-
-//   return {
-//     "Content-Type": "application/json",
-//     "X-AUTH-APIKEY": apiKey,
-//     "X-AUTH-SIGNATURE": signature,
-//     "X-AUTH-EPOCH": epochMs, 
-//   };
-// }
-
-// module.exports = {
-//   generateSignature,
-//   getAuthHeaders,
-// };
-
-// module.exports = { getAuthHeaders, generateSignature };
 
 
 
@@ -87,7 +33,7 @@ function generateSignature(message, secretHex) {
 //   method,
 //   path,                // raw path like "/trade/api/v2/futures/leverage"
 //   queryParams = {},
-//   body = null,         // ← now properly used for POST body
+//   body = null,
 //   apiKey = process.env.API_KEY,
 //   apiSecret = process.env.API_SECRET
 // ) {
@@ -95,15 +41,18 @@ function generateSignature(message, secretHex) {
 //     throw new Error("API_KEY or API_SECRET not set in env");
 //   }
 
-//   const epoch = Date.now().toString();  // ms string
+//   const epoch = Date.now().toString();
 
+//   // Build signing path exactly as it will appear in the URL
 //   let signingPath = path;
 //   if (Object.keys(queryParams).length > 0) {
 //     const qs = new URLSearchParams(queryParams).toString();
 //     signingPath += "?" + qs;
 //   }
 
-//   const cleanPath = decodeURIComponent(signingPath);
+//   // ❌ DON'T decode - the signature should match the exact URL encoding
+//   // const cleanPath = decodeURIComponent(signingPath);
+//   const cleanPath = signingPath; // Use as-is
 
 //   let message = method.toUpperCase() + cleanPath + epoch;
 
@@ -112,6 +61,8 @@ function generateSignature(message, secretHex) {
 //     const bodyStr = canonicalJson(body);
 //     message += bodyStr;
 //   }
+
+//   console.log("Signature Message:", message); // Debug log
 
 //   const signature = generateSignature(message, apiSecret);
 
@@ -125,7 +76,7 @@ function generateSignature(message, secretHex) {
 
 function getAuthHeaders(
   method,
-  path,                // raw path like "/trade/api/v2/futures/leverage"
+  path,                // e.g. "/trade/api/v2/24hr/ticker"
   queryParams = {},
   body = null,
   apiKey = process.env.API_KEY,
@@ -135,28 +86,36 @@ function getAuthHeaders(
     throw new Error("API_KEY or API_SECRET not set in env");
   }
 
-  const epoch = Date.now().toString();
+  console.log("Generating auth headers for:", method, path);
+  console.log("Query params:", queryParams);
+  console.log("Body:", body);
 
-  // Build signing path exactly as it will appear in the URL
-  let signingPath = path;
-  if (Object.keys(queryParams).length > 0) {
-    const qs = new URLSearchParams(queryParams).toString();
-    signingPath += "?" + qs;
+  const epoch = Date.now().toString();  // ms string
+
+  // Build the query string encoded (for the actual URL)
+  const queryString = new URLSearchParams(queryParams).toString();
+
+  // Full path for URL (encoded)
+  let fullPathForUrl = path;
+  if (queryString) fullPathForUrl += "?" + queryString;
+
+  // For signing: DECODE / UNQUOTE the full path+query
+  let signingPath = fullPathForUrl;
+  if (queryString) {
+    // Decode once → BTC/INR instead of BTC%2FINR
+    signingPath = decodeURIComponent(fullPathForUrl);
   }
 
-  // ❌ DON'T decode - the signature should match the exact URL encoding
-  // const cleanPath = decodeURIComponent(signingPath);
-  const cleanPath = signingPath; // Use as-is
+  // Message order: METHOD + decoded_path?query + epoch  (NO spaces, NO + body for GET)
+  let message = method.toUpperCase() + signingPath + epoch;
 
-  let message = method.toUpperCase() + cleanPath + epoch;
-
-  // Append body for POST/PUT/DELETE if present
   if (body && ["POST", "PUT", "DELETE"].includes(method.toUpperCase())) {
-    const bodyStr = canonicalJson(body);
+    const bodyStr = canonicalJson(body);  // your existing sorted compact JSON
     message += bodyStr;
   }
 
-  console.log("Signature Message:", message); // Debug log
+  console.log("Signature Message:", message);          // ← log this!
+  console.log("Signing path (decoded):", signingPath); // helpful debug
 
   const signature = generateSignature(message, apiSecret);
 

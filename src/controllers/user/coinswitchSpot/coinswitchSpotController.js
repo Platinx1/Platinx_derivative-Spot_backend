@@ -3,7 +3,6 @@ const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const { getAuthHeaders } = require("../../../utils/signatureHelper");
 
-
 const BASE_URL = "https://coinswitch.co";
 
 const ENDPOINTS = {
@@ -44,7 +43,7 @@ exports.getSinglePairTicker = catchAsync(async (req, res, next) => {
   const method = "GET";
   const path = ENDPOINTS.SINGLE_PAIR_TICKER;
 
-  const queryObj = { symbol, exchange };
+  const queryObj = { symbol,exchange };
   const { fullUrl } = buildUrlAndParams(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
@@ -72,7 +71,9 @@ exports.getAllPairsTicker = catchAsync(async (req, res, next) => {
 
   const response = await axios({ method, url: fullUrl, headers });
 
-  const totalPairs = response.data.data ? Object.keys(response.data.data).length : 0;
+  const totalPairs = response.data.data
+    ? Object.keys(response.data.data).length
+    : 0;
 
   res.status(200).json({
     success: true,
@@ -87,7 +88,12 @@ exports.getSpecificPairs = catchAsync(async (req, res, next) => {
   const { symbols, exchange = "coinswitchx" } = req.query;
 
   if (!symbols) {
-    return next(new AppError("symbols parameter is required (comma-separated). Example: BTC/INR,ETH/INR", 400));
+    return next(
+      new AppError(
+        "symbols parameter is required (comma-separated). Example: BTC/INR,ETH/INR",
+        400,
+      ),
+    );
   }
 
   const symbolArray = symbols.split(",").map((s) => s.trim());
@@ -121,4 +127,3 @@ exports.getSpecificPairs = catchAsync(async (req, res, next) => {
     totalFound: Object.keys(filteredPairs).length,
   });
 });
-
