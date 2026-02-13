@@ -1,10 +1,9 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-const { D, decimalGetter } = require("../utils/decimals");
 
 const subAccountSchema = new Schema(
   {
-    // 🔹 Parent User
+    // 🔹 Platinx registered User
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -15,17 +14,19 @@ const subAccountSchema = new Schema(
     // 🔹 Sub Account Name
     name: {
       type: String,
-      required: true,
+      default: "Main Account",
       trim: true,
     },
 
+    // 🔹 Sub Account Type
     type: {
       type: String,
-      enum: ["MAIN", "FUTURES", "BOT", "COPY_TRADING"],
+      enum: ["MAIN", "BOT", "COPY_TRADING"], // ❌ Removed "FUTURES"
       default: "MAIN",
       index: true,
     },
 
+    // 🔹 Account Status
     status: {
       type: String,
       enum: ["ACTIVE", "SUSPENDED", "LIQUIDATED"],
@@ -42,19 +43,27 @@ const subAccountSchema = new Schema(
     exchangeSubAccountId: {
       type: String,
       index: true,
+      unique: true,
+      sparse: true,
     },
 
-    // 🔹 Margin Tracking (Futures specific)
-    allocatedMargin: D(),
+    // 🔹 Trading Permissions (✅ NEW)
+    spotTradingEnabled: {
+      type: Boolean,
+      default: true, // Spot enabled by default
+    },
 
-    availableMargin: D(),
+    futuresTradingEnabled: {
+      type: Boolean,
+      default: false, // User needs to enable futures manually
+    },
 
-    usedMargin: D(),
-
-    // 🔹 Risk Controls
+    // 🔹 Risk Controls (Futures specific)
     maxLeverage: {
       type: Number,
       default: 20,
+      min: 1,
+      max: 125,
     },
 
     isAutoDeleveragingEnabled: {
@@ -62,9 +71,10 @@ const subAccountSchema = new Schema(
       default: true,
     },
 
-    isTradingEnabled: {
+    // 🔹 Additional Flags
+    isApiTradingEnabled: {
       type: Boolean,
-      default: true,
+      default: false, // For algo traders
     },
   },
   {
@@ -75,17 +85,10 @@ const subAccountSchema = new Schema(
   }
 );
 
-[
-  "allocatedMargin",
-  "availableMargin",
-  "usedMargin",
-].forEach((field) => {
-  subAccountSchema.path(field).get(decimalGetter);
-});
-
+// Indexes
 subAccountSchema.index({ userId: 1, type: 1 });
 subAccountSchema.index({ exchangeSubAccountId: 1 });
-
+subAccountSchema.index({ userId: 1, status: 1 });
 
 const SubAccount = mongoose.model("SubAccount", subAccountSchema);
 module.exports = SubAccount;

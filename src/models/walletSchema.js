@@ -12,16 +12,18 @@ const walletSchema = new Schema(
       index: true,
     },
 
-    // optional fast filtering
     userId: {
       type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
       index: true,
     },
 
     // 🔹 Asset (VERY IMPORTANT)
     asset: {
-      type: String, // BTC, USDT, ETH
+      type: String, // BTC, USDT, ETH, INR
       required: true,
+      uppercase: true,
       index: true,
     },
 
@@ -30,9 +32,6 @@ const walletSchema = new Schema(
 
     // 🔹 Locked (orders / margin)
     locked: D(),
-
-    // 🔹 Available (virtual field calculated in service layer)
-    // available = balance - locked
 
     // 🔹 Wallet Type
     walletType: {
@@ -57,14 +56,21 @@ const walletSchema = new Schema(
       type: Boolean,
       default: false,
     },
+
+    // 🔹 Last update timestamp (for sync with CoinSwitch)
+    lastSyncedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
+    versionKey: false,
     toJSON: { getters: true },
     toObject: { getters: true },
   }
 );
 
+// Decimal fields
 [
   "balance",
   "locked",
@@ -76,12 +82,20 @@ const walletSchema = new Schema(
   walletSchema.path(field).get(decimalGetter);
 });
 
+// Virtual field: available balance
+walletSchema.virtual("available").get(function () {
+  const balance = this.balance ? parseFloat(this.balance) : 0;
+  const locked = this.locked ? parseFloat(this.locked) : 0;
+  return (balance - locked).toFixed(8);
+});
 
+// Indexes
 walletSchema.index(
   { subAccountId: 1, asset: 1, walletType: 1 },
   { unique: true }
 );
+walletSchema.index({ userId: 1, walletType: 1 });
+walletSchema.index({ asset: 1, walletType: 1 });
 
 const Wallet = mongoose.model("Wallet", walletSchema);
-
 module.exports = Wallet;
