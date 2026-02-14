@@ -54,16 +54,21 @@ const futuresOrderSchema = new Schema(
 
     // 🔹 Pricing
     price: D(),
-    stopPrice: D(),          // for stop orders
+    stopPrice: D(),
     quantity: D(),
 
     // 🔹 Execution Tracking
     filledQuantity: D(),
+    
+    remainingQuantity: D(), // ✅ NEW - quantity - filledQuantity
+    
     avgPrice: D(),
 
     totalTradeValue: D(),
+    
     totalExchangeFee: D(),
     totalPlatformFee: D(),
+    totalGst: D(), // ✅ NEW - GST on platform fee
 
     // 🔹 Margin
     leverage: {
@@ -80,12 +85,19 @@ const futuresOrderSchema = new Schema(
     },
 
     marginUsed: D(),
+    
+    initialMargin: D(), // ✅ NEW - margin locked at order creation
 
-    maintenanceMargin: D(),      // snapshot
-    liquidationPrice: D(),       // snapshot
+    maintenanceMargin: D(),
+    liquidationPrice: D(),
 
     // 🔹 Flags
     reduceOnly: {
+      type: Boolean,
+      default: false,
+    },
+
+    postOnly: { // ✅ NEW - Only maker orders (won't take liquidity)
       type: Boolean,
       default: false,
     },
@@ -101,6 +113,7 @@ const futuresOrderSchema = new Schema(
       default: "WEB",
     },
 
+    // 🔹 Order IDs
     clientOrderId: {
       type: String,
       index: true,
@@ -109,11 +122,14 @@ const futuresOrderSchema = new Schema(
     exchangeOrderId: {
       type: String,
       index: true,
+      sparse: true, // ✅ Allow null for orders not yet sent to exchange
     },
 
+    // 🔹 Status
     status: {
       type: String,
       enum: [
+        "PENDING",        // ✅ NEW - Order created but not sent to exchange
         "OPEN",
         "PARTIALLY_FILLED",
         "FILLED",
@@ -121,8 +137,48 @@ const futuresOrderSchema = new Schema(
         "REJECTED",
         "EXPIRED",
       ],
-      default: "OPEN",
+      default: "PENDING", // ✅ Changed from OPEN
       index: true,
+    },
+
+    // 🔹 Position Reference (✅ NEW)
+    positionId: {
+      type: Schema.Types.ObjectId,
+      ref: "FuturesPosition",
+      index: true,
+    },
+
+    // 🔹 TP/SL Orders (✅ NEW)
+    takeProfitPrice: D(),
+    stopLossPrice: D(),
+    
+    // If this order is a TP/SL trigger
+    triggerType: {
+      type: String,
+      enum: ["NONE", "TAKE_PROFIT", "STOP_LOSS"],
+      default: "NONE",
+    },
+
+    triggeredBy: { // Original order that triggered this TP/SL
+      type: Schema.Types.ObjectId,
+      ref: "FuturesOrder",
+    },
+
+    // 🔹 Timestamps (✅ NEW)
+    placedAt: Date,        // When order was placed
+    executedAt: Date,      // When order was fully filled
+    cancelledAt: Date,     // When order was cancelled
+    rejectedAt: Date,      // When order was rejected
+
+    // 🔹 Rejection/Cancellation reason (✅ NEW)
+    rejectionReason: String,
+    cancellationReason: String,
+
+    // 🔹 Metadata
+    meta: {
+      ip: String,
+      userAgent: String,
+      deviceType: String, // WEB / MOBILE / API
     },
   },
   {
@@ -133,35 +189,47 @@ const futuresOrderSchema = new Schema(
   }
 );
 
+// Decimal field getters
 [
   "price",
   "stopPrice",
   "quantity",
   "filledQuantity",
+  "remainingQuantity",
   "avgPrice",
   "totalTradeValue",
   "totalExchangeFee",
   "totalPlatformFee",
+  "totalGst",
   "marginUsed",
+  "initialMargin",
   "maintenanceMargin",
   "liquidationPrice",
+  "takeProfitPrice",
+  "stopLossPrice",
 ].forEach((field) => {
   futuresOrderSchema.path(field).get(decimalGetter);
 });
 
-// Order book queries
+// Indexes
 futuresOrderSchema.index({ symbol: 1, status: 1 });
-
-// User order history
 futuresOrderSchema.index({ userId: 1, createdAt: -1 });
-
-// Sub account isolation
 futuresOrderSchema.index({ subAccountId: 1, createdAt: -1 });
-
-// Exchange sync
 futuresOrderSchema.index({ exchangeOrderId: 1 });
+futuresOrderSchema.index({ clientOrderId: 1, subAccountId: 1 }); // ✅ Composite for uniqueness
+futuresOrderSchema.index({ positionId: 1 }); // ✅ NEW - Link to position
+futuresOrderSchema.index({ status: 1, createdAt: -1 }); // ✅ NEW - Active orders
+futuresOrderSchema.index({ symbol: 1, side: 1, status: 1 }); // ✅ NEW - Order book depth
 
+// Pre-save hook to calculate remainingQuantity
+futuresOrderSchema.pre('save', function(next) {
+  if (this.quantity && this.filledQuantity) {
+    const qty = parseFloat(this.quantity);
+    const filled = parseFloat(this.filledQuantity);
+    this.remainingQuantity = (qty - filled).toFixed(8);
+  }
+  next();
+});
 
 const FuturesOrder = mongoose.model("FuturesOrder", futuresOrderSchema);
-
 module.exports = FuturesOrder;
