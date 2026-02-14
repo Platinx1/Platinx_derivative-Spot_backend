@@ -10,6 +10,7 @@ const AppError = require("../utils/AppError");
 
 
 const errorDev = (err, req, res) => {
+  // console.error("Error details:", err); // Log the full error object for debugging
   return res.status(err.statusCode).json({
     status: err.status,
     // ❌ DON'T send the full error object - it may have circular references

@@ -49,6 +49,7 @@ const {
   transferFunds,
   closePosition,
 } = require("../controllers/user/coinswitchHFT/coinswitchHFT");
+const { createSpotOrder } = require("../controllers/user/coinswitchSpot/coinswitchPlaceOrder");
 
 const router = express.Router();
 
@@ -74,6 +75,8 @@ router.get("/spot/tradeInfo", getTradeInfo);
 
 //portfolio
 router.get("/spot/portfolio", getUserPortfolio);
+
+router.post('/spot/order', createSpotOrder);
 
 // Future endpoints (placeholders)
 router.post("/futures/leverage", setFuturesLeverage);
