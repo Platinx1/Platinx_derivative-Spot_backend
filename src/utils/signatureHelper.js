@@ -29,50 +29,6 @@ function generateSignature(message, secretHex) {
   return Buffer.from(sigBytes).toString("hex");
 }
 
-// function getAuthHeaders(
-//   method,
-//   path,                // raw path like "/trade/api/v2/futures/leverage"
-//   queryParams = {},
-//   body = null,
-//   apiKey = process.env.API_KEY,
-//   apiSecret = process.env.API_SECRET
-// ) {
-//   if (!apiKey || !apiSecret) {
-//     throw new Error("API_KEY or API_SECRET not set in env");
-//   }
-
-//   const epoch = Date.now().toString();
-
-//   // Build signing path exactly as it will appear in the URL
-//   let signingPath = path;
-//   if (Object.keys(queryParams).length > 0) {
-//     const qs = new URLSearchParams(queryParams).toString();
-//     signingPath += "?" + qs;
-//   }
-
-//   // ❌ DON'T decode - the signature should match the exact URL encoding
-//   // const cleanPath = decodeURIComponent(signingPath);
-//   const cleanPath = signingPath; // Use as-is
-
-//   let message = method.toUpperCase() + cleanPath + epoch;
-
-//   // Append body for POST/PUT/DELETE if present
-//   if (body && ["POST", "PUT", "DELETE"].includes(method.toUpperCase())) {
-//     const bodyStr = canonicalJson(body);
-//     message += bodyStr;
-//   }
-
-//   console.log("Signature Message:", message); // Debug log
-
-//   const signature = generateSignature(message, apiSecret);
-
-//   return {
-//     "Content-Type": "application/json",
-//     "X-AUTH-APIKEY": apiKey,
-//     "X-AUTH-SIGNATURE": signature,
-//     "X-AUTH-EPOCH": epoch,
-//   };
-// }
 
 function getAuthHeaders(
   method,
@@ -126,5 +82,56 @@ function getAuthHeaders(
     "X-AUTH-EPOCH": epoch,
   };
 }
+
+// function getAuthHeaders(
+//   method,
+//   path,                // raw path like "/v5/market/time"
+//   queryParams = {},
+//   body = null,
+//   apiKey = process.env.API_KEY,
+//   apiSecret = process.env.API_SECRET
+// ) {
+//   if (!apiKey || !apiSecret) {
+//     throw new Error("API_KEY or API_SECRET not set in env");
+//   }
+
+//   console.log("Generating auth headers for:", method, path);
+//   console.log("Query params:", queryParams);
+//   console.log("Body:", body);
+
+//   const epoch = Math.floor(Date.now()).toString();  // Better: use seconds or ms consistently (doc uses ms)
+
+//   // Build query string (encoded)
+//   const queryString = new URLSearchParams(queryParams).toString();
+
+//   // Full path for URL (with encoded query)
+//   let signingPath = path;
+//   if (queryString) {
+//     signingPath += "?" + queryString;
+//   }
+
+//   // IMPORTANT: Do NOT decode here for signing!
+//   // Only decode if you need to normalize for display/logging
+//   // CoinSwitch/Bybit signs the **encoded** version as sent in URL
+
+//   let message = method.toUpperCase() + signingPath + epoch;
+
+//   if (body && ["POST", "PUT", "DELETE", "PATCH"].includes(method.toUpperCase())) {
+//     const bodyStr = canonicalJson(body);
+//     message += bodyStr;
+//   }
+
+//   console.log("Signature Message:", message);
+//   console.log("Signing path (as used):", signingPath);
+
+//   const signature = generateSignature(message, apiSecret);
+
+//   return {
+//     "Content-Type": "application/json",
+//     "X-AUTH-APIKEY": apiKey,
+//     "X-AUTH-SIGNATURE": signature,
+//     "X-AUTH-EPOCH": epoch,
+//   };
+// }
 
 module.exports = { getAuthHeaders, generateSignature };

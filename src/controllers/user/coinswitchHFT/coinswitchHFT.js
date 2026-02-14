@@ -1,12 +1,8 @@
-// controllers/user/coinswitchFuture/coinswitchFuturesController.js
-
 const axios = require("axios");
-const catchAsync = require("../../../utils/catchAsync"); // Assuming this is your error handler
+const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
-const { getAuthHeaders } = require("../../../utils/signatureHelper"); // Your signature helper (assume fixed)
-const { buildUrlAndParams } = require("../../../utils/signatureHelper"); // Helper for URL
-
-const BASE_URL = "https://dma.coinswitch.co"; // From doc, DMA base
+const { getAuthHeaders } = require("../../../utils/signatureHelper");
+const { buildUrlAndParamsDMA } = require("../../../utils/urlAndParamsHelper");
 
 // Helper to handle responses
 const handleApiResponse = (res, message, data) => {
@@ -22,7 +18,7 @@ exports.getServerTime = catchAsync(async (req, res, next) => {
   const method = "GET";
   const path = "/v5/market/time";
   const queryObj = {}; // No params
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -41,7 +37,7 @@ exports.getInstrumentsInfo = catchAsync(async (req, res, next) => {
   if (symbol) queryObj.symbol = symbol;
   if (limit) queryObj.limit = limit;
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -64,9 +60,11 @@ exports.getTickers = catchAsync(async (req, res, next) => {
   const path = "/v5/market/tickers";
   const queryObj = { category, symbol };
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
+  console.log("Requesting tickers with URL:", fullUrl);
+  console.log("Request headers:", headers);
 
   const response = await axios({ method, url: fullUrl, headers });
 
@@ -83,7 +81,7 @@ exports.getOrderbook = catchAsync(async (req, res, next) => {
   const path = "/v5/market/orderbook";
   const queryObj = { category, symbol, limit };
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -108,7 +106,7 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/v5/order/create";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
@@ -133,7 +131,7 @@ exports.cancelOrder = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/v5/order/cancel";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
@@ -156,7 +154,7 @@ exports.getOpenOrders = catchAsync(async (req, res, next) => {
   if (symbol) queryObj.symbol = symbol;
   if (orderStatus) queryObj.orderStatus = orderStatus;
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -182,7 +180,7 @@ exports.getOrderHistory = catchAsync(async (req, res, next) => {
   const queryObj = { category, limit };
   if (symbol) queryObj.symbol = symbol;
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -206,7 +204,7 @@ exports.getOrderDetails = catchAsync(async (req, res, next) => {
   if (orderId) queryObj.orderId = orderId;
   if (orderLinkId) queryObj.orderLinkId = orderLinkId;
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -232,7 +230,7 @@ exports.getTradeHistory = catchAsync(async (req, res, next) => {
   if (orderId) queryObj.orderId = orderId;
   if (orderLinkId) queryObj.orderLinkId = orderLinkId;
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -251,7 +249,7 @@ exports.switchPositionMode = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/v5/position/switch-mode";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
@@ -269,7 +267,7 @@ exports.getOpenPositions = catchAsync(async (req, res, next) => {
   const queryObj = { category };
   if (symbol) queryObj.symbol = symbol;
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj);
 
@@ -298,7 +296,7 @@ exports.setLeverage = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/v5/position/set-leverage";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
@@ -317,7 +315,7 @@ exports.setTpSl = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/v5/position/trading-stop";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
@@ -343,7 +341,7 @@ exports.transferFunds = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/dma/api/v1/funds/transfer";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
@@ -374,7 +372,7 @@ exports.closePosition = catchAsync(async (req, res, next) => {
   const method = "POST";
   const path = "/v5/order/create";
   const queryObj = {};
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
   const headers = getAuthHeaders(method, path, queryObj, body);
 
