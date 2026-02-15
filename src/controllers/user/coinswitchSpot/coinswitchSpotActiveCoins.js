@@ -6,7 +6,6 @@ const { buildUrlAndParams } = require("../../../utils/urlAndParamsHelper");
 
 const ENDPOINTS = {
  ACTIVE_COINS: "/trade/api/v2/coins",
-
 };
 
 // 📋 Get Supported / Active Coins

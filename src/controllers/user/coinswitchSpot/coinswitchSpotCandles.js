@@ -7,7 +7,6 @@ const { getAuthHeaders } = require("../../../utils/signatureHelper");
 
 const ENDPOINTS = {
  CANDLES: "/trade/api/v2/candles",
-
 };
 
 function buildUrlAndParams(basePath, queryObj = {}) {
