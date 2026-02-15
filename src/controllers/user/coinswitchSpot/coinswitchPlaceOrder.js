@@ -1,12 +1,9 @@
-// controllers/user/coinswitchSpot/coinswitchSpotOrderController.js
-
 const axios = require('axios');
 const catchAsync = require('../../../utils/catchAsync');
 const AppError = require('../../../utils/AppError');
 const { getAuthHeaders } = require('../../../utils/signatureHelper');
-const { buildUrlAndParams } = require('../../../utils/urlAndParamsHelper'); // Use spot base (BASE_URL)
+const { buildUrlAndParams } = require('../../../utils/urlAndParamsHelper'); 
 
-const SPOT_BASE_URL = process.env.BASE_URL || 'https://coinswitch.co'; // from .env
 
 const ENDPOINTS = {
   ORDER: '/trade/api/v2/order',
