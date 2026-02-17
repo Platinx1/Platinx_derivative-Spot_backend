@@ -51,22 +51,14 @@ exports.getSpotTradingFee = catchAsync(async (req, res, next) => {
   // Generate signature (your helper is already correct: no body for GET)
   const headers = getAuthHeaders(method, path, queryObj, payload);
 
-  console.log('Fetching trading fee for exchange:', normalizedExchange);
-  console.log('Full URL:', fullUrl);
-  console.log('Headers (masked):', {
-    ...headers,
-    'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE']?.slice(0, 10) + '...' || 'missing',
-  });
-
   try {
     const response = await axios({
       method,
       url: fullUrl,
       headers,
-      // no data for GET
     });
 
-    handleApiResponse(res, 'Trading fee information retrieved successfully', response.data);
+    handleApiResponse(res, 'Trading fee information retrieved successfully', response.data?.data);
   } catch (error) {
     if (error.response) {
       const { status, data } = error.response;
