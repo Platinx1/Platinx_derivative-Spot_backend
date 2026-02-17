@@ -4,6 +4,7 @@ const AppError = require("../../../utils/AppError");
 const { getAuthHeaders } = require("../../../utils/signatureHelper");
 const { buildUrlAndParamsDMA } = require("../../../utils/urlAndParamsHelper");
 
+
 // Helper to handle responses
 const handleApiResponse = (res, message, data) => {
   res.status(200).json({
@@ -325,29 +326,115 @@ exports.setTpSl = catchAsync(async (req, res, next) => {
 });
 
 // 💸 Transfer Funds (IN/OUT, with quote_asset optional, default 'INR')
-exports.transferFunds = catchAsync(async (req, res, next) => {
-  const body = req.body; // { direction: 'IN'/'OUT', amount, client_txn_id, quote_asset?: 'INR'/'USDT' }
+// exports.transferFunds = catchAsync(async (req, res, next) => {
+//   const body = req.body; // { direction: 'IN'/'OUT', amount, client_txn_id, quote_asset?: 'INR'/'USDT' }
 
-  if (!body.direction || !body.amount || !body.client_txn_id) {
+//   if (!body.direction || !body.amount ) {
+//     return next(
+//       new AppError(
+//         "Missing required fields: direction, amount, client_txn_id",
+//         400,
+//       ),
+//     );
+//   }
+//   body.quote_asset = body.quote_asset || "INR"; // Default to INR as per INR margined
+
+//   const method = "POST";
+//   const path = "/dma/api/v1/funds/transfer";
+//   const queryObj = {};
+//   const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
+
+//   const headers = getAuthHeaders(method, path, queryObj, body);
+
+//   const response = await axios({ method, url: fullUrl, headers, data: body });
+
+//   handleApiResponse(res, "Funds transferred successfully", response.data);
+// });
+
+const { v4: uuidv4 } = require('uuid'); // Make sure uuid is installed: npm install uuid
+
+exports.transferFunds = catchAsync(async (req, res, next) => {
+  let body = { ...req.body }; // Create a copy so we don't mutate original req.body
+
+  // Required fields check (client_txn_id is now optional from user)
+  if (!body.direction || !body.amount) {
     return next(
       new AppError(
-        "Missing required fields: direction, amount, client_txn_id",
+        "Missing required fields: direction and amount are mandatory",
         400,
       ),
     );
   }
-  body.quote_asset = body.quote_asset || "INR"; // Default to INR as per INR margined
+
+  // Default quote_asset
+  body.quote_asset = body.quote_asset || "INR";
+
+  // Generate client_txn_id if not provided (recommended & safest)
+  if (!body.client_txn_id) {
+    body.client_txn_id = uuidv4();
+    console.log("Auto-generated client_txn_id:", body.client_txn_id);
+  } else {
+    // Optional: Validate if user provided one
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(body.client_txn_id)) {
+      return next(new AppError("Invalid client_txn_id format – must be valid UUID v4", 400));
+    }
+  }
+
+  // Extra validation for direction
+  const directionUpper = body.direction.toUpperCase();
+  if (!['IN', 'OUT'].includes(directionUpper)) {
+    return next(new AppError("Invalid direction: must be 'IN' or 'OUT'", 400));
+  }
+  body.direction = directionUpper;
+
+  // Amount must be positive number
+  const amountNum = Number(body.amount);
+  if (isNaN(amountNum) || amountNum <= 0) {
+    return next(new AppError("Amount must be a positive number", 400));
+  }
+  body.amount = amountNum;
 
   const method = "POST";
   const path = "/dma/api/v1/funds/transfer";
   const queryObj = {};
   const { fullUrl } = buildUrlAndParamsDMA(path, queryObj);
 
+  // Now headers will include the body with client_txn_id
   const headers = getAuthHeaders(method, path, queryObj, body);
 
-  const response = await axios({ method, url: fullUrl, headers, data: body });
+  try {
+    const response = await axios({
+      method,
+      url: fullUrl,
+      headers,
+      data: body,
+    });
 
-  handleApiResponse(res, "Funds transferred successfully", response.data);
+    handleApiResponse(res, "Funds transferred successfully", {
+      ...response.data,
+      client_txn_id: body.client_txn_id, // Return the used txn id for tracking
+    });
+  } catch (error) {
+    if (error.response) {
+      const { status, data } = error.response;
+      const apiMsg = data?.message || "Unknown error";
+
+      if (status === 422 && data?.code === 601) {
+        return next(new AppError(`Invalid client_txn_id: ${apiMsg}`, 422));
+      }
+      if (status === 401) {
+        return next(new AppError(`Unauthorized: Invalid signature or API key – ${apiMsg}`, 401));
+      }
+      if (status === 500) {
+        return next(new AppError("CoinSwitch internal error – please retry", 500));
+      }
+
+      return next(new AppError(`CoinSwitch rejected: ${apiMsg} (code ${status})`, status));
+    }
+
+    return next(new AppError("Network error connecting to CoinSwitch", 503));
+  }
 });
 
 // 🔒 Close Position (Place market order to close)
