@@ -51,6 +51,7 @@ const {
 } = require("../controllers/user/coinswitchHFT/coinswitchHFT");
 const { createSpotOrder, cancelSpotOrder, getSpotOrder, getSpotOpenOrders, getSpotClosedOrders } = require("../controllers/user/coinswitchSpot/coinswitchPlaceOrder");
 const { getSpotTrades } = require("../controllers/user/coinswitchSpot/coinswitchSpotTrades");
+const { getSpotTradingFee } = require("../controllers/user/coinswitchSpot/coinswitchTradingFee");
 
 const router = express.Router();
 
@@ -86,6 +87,9 @@ router.get('/spot/orders', getSpotClosedOrders);
 
 //trades
 router.post('/spot/trades', getSpotTrades);
+
+//trading fee (spot)
+router.get('/spot/trading-fee', getSpotTradingFee);
 
 // Future endpoints (placeholders)
 router.post("/futures/leverage", setFuturesLeverage);
