@@ -362,6 +362,7 @@ exports.getSpotOpenOrders = catchAsync(async (req, res, next) => {
 });
 
 
+
 exports.getSpotClosedOrders = catchAsync(async (req, res, next) => {
   const {
     count,
@@ -371,121 +372,223 @@ exports.getSpotClosedOrders = catchAsync(async (req, res, next) => {
     symbols,
     exchanges,
     type,
-    status,           // e.g. EXECUTED, CANCELLED, EXPIRED, ...
-    open = 'false',   // must be false for closed orders
+    status,
+    open,
   } = req.query;
 
-  // Enforce open=false for closed/historical orders
-  if (open !== 'false' && open !== false) {
-    return next(new AppError('For closed/historical orders, open must be false', 400));
+  // For closed orders: open should be false or omitted
+  if (open !== undefined && open !== false && open !== 'false') {
+    return next(new AppError('For closed orders, open must be false or omitted', 400));
   }
 
-  const queryObj = { open: false }; // force open=false
+  const queryObj = { open: false };
 
-  // Optional: count (default in API is 500 according to your latest info)
+  // Optional: warn if likely empty result
+  if (!from_time && !to_time && !status) {
+    console.warn(
+      '[CLOSED ORDERS] No time range or status → API may return empty (common when no recent activity)'
+    );
+  }
+
   if (count !== undefined) {
-    const parsedCount = Number(count);
-    if (!Number.isInteger(parsedCount) || parsedCount < 1 || parsedCount > 500) {
-      return next(new AppError('count must be an integer between 1 and 500', 400));
+    const parsed = Number(count);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 500) {
+      return next(new AppError('count must be integer 1–500', 400));
     }
-    queryObj.count = parsedCount;
+    queryObj.count = parsed;
   }
 
-  // Time range filters
   if (from_time !== undefined) {
-    const parsedFrom = Number(from_time);
-    if (isNaN(parsedFrom)) {
-      return next(new AppError('from_time must be a valid millisecond timestamp', 400));
-    }
-    queryObj.from_time = parsedFrom;
+    const parsed = Number(from_time);
+    if (isNaN(parsed)) return next(new AppError('from_time must be valid ms timestamp', 400));
+    queryObj.from_time = parsed;
   }
 
   if (to_time !== undefined) {
-    const parsedTo = Number(to_time);
-    if (isNaN(parsedTo)) {
-      return next(new AppError('to_time must be a valid millisecond timestamp', 400));
-    }
-    queryObj.to_time = parsedTo;
+    const parsed = Number(to_time);
+    if (isNaN(parsed)) return next(new AppError('to_time must be valid ms timestamp', 400));
+    queryObj.to_time = parsed;
   }
 
-  // Side filter
   if (side) {
-    const normalizedSide = side.toLowerCase();
-    if (!['buy', 'sell'].includes(normalizedSide)) {
-      return next(new AppError('side must be "buy" or "sell" (case insensitive)', 400));
-    }
-    queryObj.side = normalizedSide;
+    const norm = side.toLowerCase().trim();
+    if (!['buy', 'sell'].includes(norm)) return next(new AppError('side must be buy or sell', 400));
+    queryObj.side = norm;
   }
 
-  // Symbols (comma-separated ok)
-  if (symbols) {
-    queryObj.symbols = symbols;
-  }
+  if (symbols) queryObj.symbols = symbols.trim();
+  if (exchanges) queryObj.exchanges = exchanges.toLowerCase().trim();
 
-  // Exchanges (comma-separated ok)
-  if (exchanges) {
-    queryObj.exchanges = exchanges.toLowerCase();
-  }
-
-  // Type (currently only limit supported)
   if (type) {
-    const normalizedType = type.toLowerCase();
-    if (normalizedType !== 'limit') {
-      return next(new AppError('Only "limit" type is currently supported', 400));
-    }
-    queryObj.type = normalizedType;
+    const norm = type.toLowerCase().trim();
+    if (norm !== 'limit') return next(new AppError('type must be limit', 400));
+    queryObj.type = norm;
   }
 
-  // Status filter – common values: EXECUTED, CANCELLED, EXPIRED, DISCARDED, ...
   if (status) {
-    // You can pass single value or comma-separated if API supports it
-    // API might also support: in:EXECUTED,CANCELLED (check official docs)
-    queryObj.status = status;
+    queryObj.status = status.trim();
   }
+
+  // Do NOT force open here → API defaults to false for closed/historical
+  // If user explicitly sends open=false, it will be added as boolean false
 
   const method = 'GET';
   const path = ENDPOINTS.ORDERS_LIST;
-  const payload = null; // no body
+  const payload = null;
 
   const { fullUrl } = buildUrlAndParams(path, queryObj);
-
   const headers = getAuthHeaders(method, path, queryObj, payload);
 
-  console.log('Fetching closed orders with query:', queryObj);
-  console.log('Full URL:', fullUrl);
-  console.log('Headers (masked):', {
-    ...headers,
-    'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE']?.slice(0, 10) + '...' || 'missing',
-  });
+  console.log("========================", queryObj);
+
+  // console.log('[CLOSED ORDERS] Query:', queryObj);
+  // console.log('[CLOSED ORDERS] URL:', fullUrl);
 
   try {
-    const response = await axios({
-      method,
-      url: fullUrl,
-      headers,
-    });
+    const response = await axios({ method, url: fullUrl, headers });
+
+    // Extra debug – helps understand if empty is expected
+    if (response.data?.orders?.length === 0) {
+      console.log('[CLOSED ORDERS] Returned 0 orders – check if account has closed activity');
+    }
 
     handleApiResponse(res, 'Closed orders retrieved successfully', response.data);
   } catch (error) {
     if (error.response) {
-      const { status: httpStatus, data } = error.response;
-
-      if (httpStatus === 400) {
-        return next(new AppError(data.message || 'Bad request – check parameters', 400));
-      }
-      if (httpStatus === 401) {
-        return next(new AppError('Unauthorized – invalid API credentials', 401));
-      }
-      if (httpStatus === 422) {
-        return next(new AppError(data.message || 'Validation error in query parameters', 422));
-      }
-      if (httpStatus === 500) {
-        return next(new AppError('CoinSwitch internal server error – try again later', 500));
-      }
-
-      return next(new AppError(`CoinSwitch API error: ${data.message || 'Unknown'}`, httpStatus));
+      const { status, data } = error.response;
+      let msg = data?.message || 'CoinSwitch error';
+      if (status === 400) msg += ' – check parameters';
+      return next(new AppError(msg, status));
     }
-
-    return next(new AppError('Failed to reach CoinSwitch API', 503));
+    return next(new AppError('Failed to connect to CoinSwitch API', 503));
   }
 });
+
+
+// exports.getSpotClosedOrders = catchAsync(async (req, res, next) => {
+//   const {
+//     count,
+//     from_time,
+//     to_time,
+//     side,
+//     symbols,
+//     exchanges,
+//     type,
+//     status,           // e.g. EXECUTED, CANCELLED, EXPIRED, ...
+//     open = 'false',   // must be false for closed orders
+//   } = req.query;
+
+//   // Enforce open=false for closed/historical orders
+//   if (open !== 'false' && open !== false) {
+//     return next(new AppError('For closed/historical orders, open must be false', 400));
+//   }
+
+//   const queryObj = { open: 'false' }; // force open=false
+
+//   // Optional: count (default in API is 500 according to your latest info)
+//   if (count !== undefined) {
+//     const parsedCount = Number(count);
+//     if (!Number.isInteger(parsedCount) || parsedCount < 1 || parsedCount > 500) {
+//       return next(new AppError('count must be an integer between 1 and 500', 400));
+//     }
+//     queryObj.count = parsedCount;
+//   }
+
+//   // Time range filters
+//   if (from_time !== undefined) {
+//     const parsedFrom = Number(from_time);
+//     if (isNaN(parsedFrom)) {
+//       return next(new AppError('from_time must be a valid millisecond timestamp', 400));
+//     }
+//     queryObj.from_time = parsedFrom;
+//   }
+
+//   if (to_time !== undefined) {
+//     const parsedTo = Number(to_time);
+//     if (isNaN(parsedTo)) {
+//       return next(new AppError('to_time must be a valid millisecond timestamp', 400));
+//     }
+//     queryObj.to_time = parsedTo;
+//   }
+
+//   // Side filter
+//   if (side) {
+//     const normalizedSide = side.toLowerCase();
+//     if (!['buy', 'sell'].includes(normalizedSide)) {
+//       return next(new AppError('side must be "buy" or "sell" (case insensitive)', 400));
+//     }
+//     queryObj.side = normalizedSide;
+//   }
+
+//   // Symbols (comma-separated ok)
+//   if (symbols) {
+//     queryObj.symbols = symbols;
+//   }
+
+//   // Exchanges (comma-separated ok)
+//   if (exchanges) {
+//     queryObj.exchanges = exchanges.toLowerCase();
+//   }
+
+//   // Type (currently only limit supported)
+//   if (type) {
+//     const normalizedType = type.toLowerCase();
+//     if (normalizedType !== 'limit') {
+//       return next(new AppError('Only "limit" type is currently supported', 400));
+//     }
+//     queryObj.type = normalizedType;
+//   }
+
+//   // Status filter – common values: EXECUTED, CANCELLED, EXPIRED, DISCARDED, ...
+//   if (status) {
+//     // You can pass single value or comma-separated if API supports it
+//     // API might also support: in:EXECUTED,CANCELLED (check official docs)
+//     queryObj.status = status;
+//   }
+
+//   const method = 'GET';
+//   const path = ENDPOINTS.ORDERS_LIST;
+//   const payload = null; // no body
+
+//   const { fullUrl } = buildUrlAndParams(path, queryObj);
+
+//   const headers = getAuthHeaders(method, path, queryObj, payload);
+
+//   console.log('Fetching closed orders with query:', queryObj);
+//   console.log('Full URL:', fullUrl);
+//   console.log('Headers (masked):', {
+//     ...headers,
+//     'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE']?.slice(0, 10) + '...' || 'missing',
+//   });
+
+//   try {
+//     const response = await axios({
+//       method,
+//       url: fullUrl,
+//       headers,
+//     });
+
+//     handleApiResponse(res, 'Closed orders retrieved successfully', response.data);
+//   } catch (error) {
+//     if (error.response) {
+//       const { status: httpStatus, data } = error.response;
+
+//       if (httpStatus === 400) {
+//         return next(new AppError(data.message || 'Bad request – check parameters', 400));
+//       }
+//       if (httpStatus === 401) {
+//         return next(new AppError('Unauthorized – invalid API credentials', 401));
+//       }
+//       if (httpStatus === 422) {
+//         return next(new AppError(data.message || 'Validation error in query parameters', 422));
+//       }
+//       if (httpStatus === 500) {
+//         return next(new AppError('CoinSwitch internal server error – try again later', 500));
+//       }
+
+//       return next(new AppError(`CoinSwitch API error: ${data.message || 'Unknown'}`, httpStatus));
+//     }
+
+//     return next(new AppError('Failed to reach CoinSwitch API', 503));
+//   }
+// });

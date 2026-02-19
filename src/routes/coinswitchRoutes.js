@@ -83,7 +83,7 @@ router.post('/spot/order', createSpotOrder); // done
 router.delete('/spot/orders/:orderId', cancelSpotOrder); // done
 router.get('/spot/orders', getSpotOrder); // done
 router.get('/spot/orders/open', getSpotOpenOrders);  // done
-router.get('/spot/orders', getSpotClosedOrders);
+router.get('/spot/orders/close', getSpotClosedOrders);
 
 //trades
 router.post('/spot/trades', getSpotTrades);
