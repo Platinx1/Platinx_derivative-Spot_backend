@@ -9,6 +9,7 @@ const dotenv = require("dotenv");
 const http = require("http");
 const app = require("./src/app");
 const { initializeWebSocket } = require("./src/services/webSocketService");
+const { connectPi42Socket } = require("./src/services/pi42SocketService");
 
 dotenv.config({ path: "config.env" });
 
@@ -27,6 +28,7 @@ const server = http.createServer(app);
 
 // Initialize WebSocket server
 initializeWebSocket(server);
+connectPi42Socket();
 
 // Start server
 server.listen(Port, () => {

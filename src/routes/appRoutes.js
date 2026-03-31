@@ -1,6 +1,7 @@
 const express = require("express");
 
 const coinswitchRoutes = require("./coinswitchRoutes");
+const pi42Routes = require("./pi42Routes");
 
 
 exports.appRoutes = (app) => {
@@ -8,4 +9,5 @@ exports.appRoutes = (app) => {
 
   //coinswitch routes
   app.use("/api/coinswitch", coinswitchRoutes);
+  app.use("/api/pi42", pi42Routes);
 };
