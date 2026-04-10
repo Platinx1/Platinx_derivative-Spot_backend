@@ -1,149 +1,64 @@
 const mongoose = require("mongoose");
-
+const { D } = require("./decimal");
 const { Schema } = mongoose;
+
+const orderLinkTypeEnum = ["ORDER", "ORDER_TP", "ORDER_SL", "ORDER_TP_SL"];
+const orderSubTypeEnum = ["PRIMARY", "STOP_LOSS", "TAKE_PROFIT"];
+const orderStatusEnum = ["NEW", "PARTIALLY_FILLED", "FILLED", "CANCELED", "REJECTED", "EXPIRED", "WAITING"];
 
 const pi42OrderSchema = new Schema(
   {
-    // Reference to your platform's user
-    user: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true,
-    },
+    pi42Account: { type: Schema.Types.ObjectId, ref: "Pi42Account", required: true, index: true },
 
-    // Reference to Pi42 account
-    pi42Account: {
-      type: Schema.Types.ObjectId,
-      ref: "Pi42Account",
-      required: true,
-      index: true,
-    },
+    orderId: { type: Number, required: true },
+    clientOrderId: { type: String, required: true, unique: true, trim: true, index: true },
 
-    // ─── Pi42 Order Identity ───────────────────────────────────────────
-    pi42OrderId: {
-      type: String,
-      default: null, // populated after Pi42 responds
-    },
+    contractPair: { type: String, required: true, uppercase: true, trim: true },
+    contractType: { type: String, enum: ["PERPETUAL", "FUTURES"], required: true },
+    type: { type: String, enum: ["MARKET", "LIMIT", "STOP_MARKET"], required: true },
+    side: { type: String, enum: ["BUY", "SELL"], required: true },
+    subType: { type: String, enum: orderSubTypeEnum, default: "PRIMARY" },
+    linkType: { type: String, enum: orderLinkTypeEnum, default: "ORDER" },
+    linkId: { type: String, index: true },
 
-    // ─── Place Type ───────────────────────────────────────────────────
-    placeType: {
-      type: String,
-      enum: ["ORDER_FORM", "POSITION"],
-      required: true,
-    },
+    price: { ...D("0") },
+    stopPrice: { ...D("0") }, // for STOP orders
+    orderAmount: { ...D("0"), required: true }, // origQty
+    filledAmount: { ...D("0"), default: "0" },
+    avgPrice: { ...D("0") },
 
-    // ─── Core Order Fields ────────────────────────────────────────────
-    symbol: {
-      type: String,
-      required: true,
-      uppercase: true,
-      trim: true,
-    },
+    lockedMargin: { ...D("0") },
 
-    side: {
-      type: String,
-      enum: ["BUY", "SELL"],
-      // required only for ORDER_FORM, validated at service layer
-    },
+    status: { type: String, enum: orderStatusEnum, default: "NEW", required: true, index: true },
+    reduceOnly: { type: Boolean, default: false },
+    placeType: { type: String, enum: ["ORDER_FORM", "POSITION"] },
 
-    type: {
-      type: String,
-      enum: ["MARKET", "LIMIT", "STOP_MARKET"],
-      required: true,
-    },
+    leverage: { type: Number },
+    baseAsset: { type: String, uppercase: true, trim: true }, // BTC
+    quoteAsset: { type: String, uppercase: true, trim: true }, // INR
+    marginAsset: { type: String, uppercase: true, trim: true }, // INR
+    marginConversionRate: { ...D("1") },
 
-    quantity: {
-      type: Number,
-      required: true,
-    },
+    positionId: { type: String, index: true }, // linked position
 
-    reduceOnly: {
-      type: Boolean,
-      default: false,
-    },
+    refId: { type: String, index: true }, // optional reference
 
-    // ─── Pricing Fields ───────────────────────────────────────────────
-    price: {
-      type: Number,
-      default: null, // required if type is LIMIT
-    },
+    errorMessage: { type: String },
 
-    stopLossPrice: {
-      type: Number,
-      default: null,
-    },
-
-    takeProfitPrice: {
-      type: Number,
-      default: null,
-    },
-
-    // ─── ORDER_FORM specific ──────────────────────────────────────────
-    marginAsset: {
-      type: String,
-      uppercase: true,
-      trim: true,
-      default: "INR",
-    },
-
-    leverage: {
-      type: Number,
-      default: null, // only for place-order-with-leverage
-    },
-
-    // ─── POSITION specific ────────────────────────────────────────────
-    positionId: {
-      type: String,
-      default: null, // required if placeType is POSITION
-      trim: true,
-    },
-
-    // ─── Order Status ─────────────────────────────────────────────────
-    status: {
-      type: String,
-      enum: [
-        "pending",    // order created locally, not yet sent to Pi42
-        "placed",     // successfully placed on Pi42
-        "filled",     // fully executed
-        "partial",    // partially filled
-        "cancelled",  // cancelled
-        "rejected",   // rejected by Pi42
-        "failed",     // error while placing
-      ],
-      default: "pending",
-      index: true,
-    },
-
-    // ─── Pi42 Raw Response ────────────────────────────────────────────
-    // pi42Response: {
-    //   type: Schema.Types.Mixed,
-    //   default: null, // store full Pi42 response for debugging/reconciliation
-    // },
-
-    // ─── Error Tracking ───────────────────────────────────────────────
-    // errorMessage: {
-    //   type: String,
-    //   default: null, // populated if status is failed or rejected
-    // },
-
-    // Soft delete
-    isDeleted: {
-      type: Boolean,
-      default: false,
-    },
+    pi42CreatedAt: { type: Date },
+    pi42UpdatedAt: { type: Date },
+    isDeleted: { type: Boolean, default: false },
   },
   {
     timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true },
   }
 );
 
-// ─── Indexes ──────────────────────────────────────────────────────────────────
-pi42OrderSchema.index({ user: 1, status: 1 });
-pi42OrderSchema.index({ user: 1, symbol: 1 });
-pi42OrderSchema.index({ pi42Account: 1, createdAt: -1 });
-pi42OrderSchema.index({ positionId: 1 });
+pi42OrderSchema.index({ pi42Account: 1, status: 1 });
+pi42OrderSchema.index({ linkId: 1 });
+pi42OrderSchema.index({ pi42Account: 1, clientOrderId: 1 });
 
 const Pi42Order = mongoose.model("Pi42Order", pi42OrderSchema);
-
 module.exports = Pi42Order;

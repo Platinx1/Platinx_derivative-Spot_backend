@@ -5,6 +5,9 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
+const { getPi42User } = require("../../../services/pi42UserService");
+const { createDepositTransaction, createWithdrawalTransaction } = require("../../../services/pi42WalletTransactionService");
+const { createFuturesWallet, upsertFuturesWallet } = require("../../../services/pi42WalletService");
 
 const generateReferenceIdForDeposit = () => {
   return `dep_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
@@ -26,12 +29,11 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     return next(new AppError("Amount must be greater than 0", 400));
   }
 
-  // 🔹 Get user's Pi42 account
-  // const account = await Pi42SubAccount.findOne({ userId, type: "MAIN" });
+  const userData = await getPi42User(userId, accountId);
 
-  // if (!account) {
-  //   return next(new AppError("Pi42 account not found for user", 404));
-  // }
+  if (!userData) {
+    return next(new AppError("Pi42 user not found", 404));
+  }
 
   const endpoint = `/v1/integration/deposit-inr`;
   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
@@ -73,6 +75,18 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     return next(new AppError("Failed to deposit INR", 500));
   }
 
+  try {
+    await createDepositTransaction(
+      userData._id,           // pi42Account
+      response,
+      Number(amount),         // requested amount
+      referenceId
+    );
+  } catch (saveErr) {
+    console.error("❌ Failed to save deposit transaction to DB:", saveErr);
+    // We still return success because deposit succeeded on Pi42 side
+  }
+
   res.status(200).json({
     status: true,
     message: "INR deposited successfully",
@@ -93,6 +107,12 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
 
   if (Number(amount) <= 0) {
     return next(new AppError("Amount must be greater than 0", 400));
+  }
+
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 user not found", 404));
   }
 
   const endpoint = `/v1/integration/withdraw-inr`;
@@ -117,10 +137,6 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
 
   let response;
 
-  console.log("=============", body)
-  console.log(">>>>>>>>>>>>>>>>>>>>>>>", headers)
-
-
   try {
     const apiRes = await axios.post(url, body, { headers });
     response = apiRes.data;
@@ -137,6 +153,18 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
 
   if (!response) {
     return next(new AppError("Failed to withdraw INR", 500));
+  }
+
+  try {
+    await createWithdrawalTransaction(
+      userData._id,           // pi42Account
+      response,
+      Number(amount),         // requested amount
+      referenceId
+    );
+  } catch (saveErr) {
+    console.error("❌ Failed to save withdrawal transaction to DB:", saveErr);
+    // We still return success because withdrawal request succeeded on Pi42 side
   }
 
   res.status(200).json({
@@ -247,6 +275,12 @@ exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
     );
   }
 
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 user not found", 404));
+  }
+
   const endpoint = `/v1/wallet/futures-wallet/details`;
   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
 
@@ -288,6 +322,13 @@ exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
 
   if (!response) {
     return next(new AppError("Wallet data not found", 404));
+  }
+
+  try {
+    await upsertFuturesWallet(userData._id, response);
+  } catch (saveErr) {
+    console.error("❌ Failed to create wallet record in DB:", saveErr);
+    // Still return success because data was fetched successfully from Pi42
   }
 
   res.status(200).json({

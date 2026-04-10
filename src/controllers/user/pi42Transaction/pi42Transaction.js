@@ -2,6 +2,7 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
+const { getPi42User } = require("../../../services/pi42UserService");
 
 exports.getTransactionHistory = catchAsync(async (req, res, next) => {
   const {
@@ -37,6 +38,11 @@ exports.getTransactionHistory = catchAsync(async (req, res, next) => {
     return next(
       new AppError("Do not pass both tradeId and positionId together", 400)
     );
+  }
+
+  const userData = await getPi42User(userId, accountId);
+  if (!userData) {
+    return next(new AppError("User not found", 404));
   }
 
   const endpoint = `/v1/user-data/transaction-history`;

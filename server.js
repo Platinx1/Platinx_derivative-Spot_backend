@@ -10,6 +10,7 @@ const http = require("http");
 const app = require("./src/app");
 const { initializeWebSocket } = require("./src/services/webSocketService");
 const { connectPi42Socket } = require("./src/services/pi42SocketService");
+const { createPi42WalletTransactionsFromTrade } = require("./src/services/pi42WalletTransactionService");
 
 dotenv.config({ path: "config.env" });
 

@@ -5,14 +5,20 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
+const { createPi42User } = require("../../../services/pi42UserService");
 
 // 🔥 Unique refId generator
 const generateRefId = () => {
   return `plx_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 };
 
-exports.createPi42User = catchAsync(async (req, res, next) => {
+const generateRandomNumber = () => {
+  return (100000 + Math.floor(Math.random() * 900000)).toString(); // Generates a 6-digit string
+};
+
+exports.createPi42UserAccount = catchAsync(async (req, res, next) => {
   const refId = generateRefId();
+  const randomUserId = generateRandomNumber(); // Generate a random user ID
 
   const endpoint = `/v1/integration/create-user`;
   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
@@ -49,8 +55,7 @@ exports.createPi42User = catchAsync(async (req, res, next) => {
   // 🔥 Extract values from Pi42 response
   const { userId: pi42UserId, accountId: pi42AccountId } = response;
 
-  // 🔥 Save in DB
-  
+  await createPi42User(randomUserId, pi42UserId, pi42AccountId, refId);
 
   res.status(201).json({
     status: true,

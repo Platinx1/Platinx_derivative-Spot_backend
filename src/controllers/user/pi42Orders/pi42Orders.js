@@ -4,6 +4,9 @@ const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
 
+const { createPi42Order, cancelPi42Order, cancelAllPi42Orders } = require("../../../services/pi42OrderService");
+const { getPi42User } = require("../../../services/pi42UserService");
+
 exports.placeOrder = catchAsync(async (req, res, next) => {
   const {
     userId,
@@ -32,6 +35,12 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
 
   if (Number(quantity) <= 0) {
     return next(new AppError("Quantity must be greater than 0", 400));
+  }
+
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 account not found for the user", 404));
   }
 
   const endpoint = `/v1/order/place-order`;
@@ -123,6 +132,16 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
     return next(new AppError("Failed to place order", 500));
   }
 
+  // ========================
+  // Save to Database using service
+  // ========================
+  try {
+    await createPi42Order(userData._id, response);
+  } catch (saveErr) {
+    console.error("❌ Failed to save Pi42Order to DB:", saveErr);
+    // We still return success because order was placed on exchange
+  }
+
   res.status(200).json({
     status: true,
     message: "Order placed successfully",
@@ -178,6 +197,13 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
 
   if (type === "LIMIT" && !price) {
     return next(new AppError("price is required for LIMIT orders", 400));
+  }
+
+  // const userData = await Pi42Account.findOne({ pi42UserId: userId, pi42AccountId: accountId });
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 account not found for the user", 404));
   }
 
   const endpoint = `/v1/order/place-order-with-leverage`;
@@ -236,6 +262,13 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
 
   if (!response) {
     return next(new AppError("Order placement failed", 500));
+  }
+
+  try {
+    await createPi42Order(userData._id, response);
+  } catch (saveErr) {
+    console.error("❌ Failed to save Pi42Order to DB:", saveErr);
+    // We still return success because order was placed on exchange
   }
 
   res.status(200).json({
@@ -455,6 +488,130 @@ exports.getOpenOrders = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.editOrder = catchAsync(async (req, res, next) => {
+  const {
+    userId,
+    accountId,
+    clientOrderId,
+    quantity,
+    price,
+    stopPrice,
+    type, // 👈 IMPORTANT (LIMIT / STOP_LIMIT / STOP_MARKET)
+  } = req.body;
+
+  // 🔥 basic validations
+  if (!userId || !accountId) {
+    return next(
+      new AppError("userId and accountId are required", 400)
+    );
+  }
+
+  if (!clientOrderId) {
+    return next(
+      new AppError("clientOrderId is required", 400)
+    );
+  }
+
+  if (!quantity && !price && !stopPrice) {
+    return next(
+      new AppError(
+        "At least one field (quantity, price, stopPrice) is required",
+        400
+      )
+    );
+  }
+
+  // 🔥 numeric validations
+  if (quantity && Number(quantity) <= 0) {
+    return next(new AppError("quantity must be > 0", 400));
+  }
+
+  if (price && Number(price) <= 0) {
+    return next(new AppError("price must be > 0", 400));
+  }
+
+  if (stopPrice && Number(stopPrice) <= 0) {
+    return next(new AppError("stopPrice must be > 0", 400));
+  }
+
+  // 🔥 type-based validation (IMPORTANT)
+  if (price && !["LIMIT", "STOP_LIMIT"].includes(type)) {
+    return next(
+      new AppError(
+        "price can only be used with LIMIT or STOP_LIMIT orders",
+        400
+      )
+    );
+  }
+
+  if (
+    stopPrice &&
+    !["STOP_LIMIT", "STOP_MARKET"].includes(type)
+  ) {
+    return next(
+      new AppError(
+        "stopPrice can only be used with STOP_LIMIT or STOP_MARKET orders",
+        400
+      )
+    );
+  }
+
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 account not found for the user", 404));
+  }
+
+  const endpoint = `/v1/order/edit-order`;
+  const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
+
+  // 🔹 headers
+  const headers = buildHeaders(
+    process.env.PARTNER_NAME,
+    process.env.API_COOKIE,
+    userId,
+    accountId
+  );
+
+  // 🔹 body (only send provided fields)
+  const body = {
+    clientOrderId,
+  };
+
+  if (quantity) body.quantity = Number(quantity);
+  if (price) body.price = Number(price);
+  if (stopPrice) body.stopPrice = Number(stopPrice);
+
+  let response;
+
+  try {
+    const apiRes = await axios.patch(url, body, { headers });
+    response = apiRes.data;
+  } catch (err) {
+    console.error(
+      "❌ PI42 Edit Order Error:",
+      err?.response?.data || err.message
+    );
+
+    return next(
+      new AppError(
+        err?.response?.data?.message || "Failed to edit order",
+        err?.response?.status || 500
+      )
+    );
+  }
+
+  if (!response) {
+    return next(new AppError("Order edit failed", 500));
+  }
+
+  res.status(200).json({
+    status: true,
+    message: "Order edited successfully",
+    data: response,
+  });
+});
+
 exports.cancelOrder = catchAsync(async (req, res, next) => {
   const { userId, accountId, clientOrderId } = req.body;
 
@@ -462,6 +619,12 @@ exports.cancelOrder = catchAsync(async (req, res, next) => {
     return next(
       new AppError("userId, accountId and clientOrderId are required", 400)
     );
+  }
+
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 account not found for the user", 404));
   }
 
   const endpoint = `/v1/order/delete-order`;
@@ -502,6 +665,8 @@ exports.cancelOrder = catchAsync(async (req, res, next) => {
     return next(new AppError("Failed to cancel order", 500));
   }
 
+  await cancelPi42Order(clientOrderId);
+
   res.status(200).json({
     status: true,
     message: "Order cancelled successfully",
@@ -516,6 +681,12 @@ exports.cancelAllOrders = catchAsync(async (req, res, next) => {
     return next(
       new AppError("userId and accountId are required", 400)
     );
+  }
+
+  const userData = await getPi42User(userId, accountId);
+
+  if (!userData) {
+    return next(new AppError("Pi42 account not found for the user", 404));
   }
 
   const endpoint = `/v1/order/cancel-all-orders`;
@@ -533,15 +704,15 @@ exports.cancelAllOrders = catchAsync(async (req, res, next) => {
   const body = {};
 
   if (symbols && Array.isArray(symbols) && symbols.length > 0) {
-    body.symbols = symbols;
+    body.symbols = symbols;  // BTCINR, ETHINR, INJINR etc.
   }
 
   if (baseAsset) {
-    body.baseAsset = baseAsset;
+    body.baseAsset = baseAsset; // BTC, ETH, INJ etc.
   }
 
   if (marginAsset) {
-    body.marginAsset = marginAsset;
+    body.marginAsset = marginAsset; // INR, USDT etc.
   }
 
   let response;
@@ -569,6 +740,17 @@ exports.cancelAllOrders = catchAsync(async (req, res, next) => {
 
   if (!response) {
     return next(new AppError("Failed to cancel orders", 500));
+  }
+
+  try {
+    await cancelAllPi42Orders(userData._id, {
+      symbols,
+      baseAsset,
+      marginAsset,
+    });
+  } catch (dbErr) {
+    console.error("❌ Failed to update orders in DB:", dbErr);
+    // We don't fail the request — exchange already cancelled them
   }
 
   res.status(200).json({

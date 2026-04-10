@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="hi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Checkout - Indiconnect</title>
+
+  <!-- Inter Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://pg.api.ccs.indiconnect.in/pg/public/js/pg/sdk/indiconnect-sdk.js?v=1.0.5"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .checkout-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 400px;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #2563eb, #1e40af);
+      color: white;
+      padding: 28px 20px 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .header p {
+      font-size: 15px;
+      opacity: 0.95;
+      font-weight: 500;
+    }
+
+    /* Amount Section */
+    .amount {
+      background: #1e40af;
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    /* Details */
+    .details {
+      padding: 24px 20px;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid #f1f1f1;
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .icon {
+      width: 42px;
+      height: 42px;
+      background: #f8fafc;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 18px;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .detail-info h3 {
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .detail-info p {
+      font-size: 16.5px;
+      color: #1f2937;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* Pay Button - Fixed with equal margin on both sides */
+    #indic-pay-button {
+      background: linear-gradient(135deg, #2563eb, #1e40af);
+      color: white;
+      border: none;
+      padding: 18px 20px;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 12px;
+      width: calc(100% - 40px);
+      /* Reduced width to add margin */
+      margin: 10px 20px 20px 20px;
+      /* Equal 20px margin on left & right */
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    #indic-pay-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+    }
+
+    /* Security */
+    .security {
+      text-align: center;
+      padding: 0 20px 16px;
+      font-size: 13.5px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .payment-methods {
+      text-align: center;
+      padding: 0 20px 30px;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .methods {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .method-tag {
+      background: #f1f5f9;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="checkout-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Secure Checkout</h1>
+      <p>Complete your payment securely</p>
+    </div>
+
+    <!-- Amount -->
+    <div class="amount" id="amount-display">
+      ₹10
+    </div>
+
+    <!-- Customer Details -->
+    <div class="details" id="details-container">
+      <!-- Populated by JavaScript -->
+    </div>
+
+    <!-- Pay Button -->
+    <button id="indic-pay-button">
+      Pay ₹10 →
+    </button>
+
+    <!-- Security -->
+    <div class="security">
+      🔒 256-bit SSL Secure Payment
+    </div>
+
+    <!-- Accepted Methods -->
+    <div class="payment-methods">
+      We accept all major payment methods
+      <div class="methods">
+        <span class="method-tag">UPI</span>
+        <span class="method-tag">Cards</span>
+        <span class="method-tag">NetBanking</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Get parameters from URL
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      console.log(":::::::::::::::::::::", params.get('merchantOrderId')); // Debug log
+      return {
+        name: params.get('name') || 'Nikhil',
+        email: params.get('email') || 'nikhil@gmail.com',
+        phone: params.get('phone') || '7834913016',
+        amount: parseInt(params.get('amount')) || 10,
+        merchantOrderId: params.get('merchantOrderId')
+      };
+    }
+
+    // Initialize the page
+    function initializeCheckout() {
+      const data = getUrlParams();
+
+      // Update amount display and button text
+      document.getElementById('amount-display').textContent = `₹${data.amount}`;
+      document.getElementById('indic-pay-button').innerHTML = `Pay ₹${data.amount} →`;
+
+      // Populate customer details
+      const detailsHTML = `
+        <div class="detail-row">
+          <div class="icon">👤</div>
+          <div class="detail-info">
+            <h3>CUSTOMER NAME</h3>
+            <p>${data.name}</p>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="icon">✉️</div>
+          <div class="detail-info">
+            <h3>EMAIL</h3>
+            <p>${data.email}</p>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="icon">📱</div>
+          <div class="detail-info">
+            <h3>PHONE</h3>
+            <p>${data.phone}</p>
+          </div>
+        </div>
+      `;
+      document.getElementById('details-container').innerHTML = detailsHTML;
+    }
+
+    // Button click handler - No changes to functionality
+    document.getElementById("indic-pay-button").addEventListener("click", () => {
+      const data = getUrlParams();
+      const mOrderId = data.merchantOrderId;
+
+      const pg = new MyCheckout({
+        // ==================== REPLACE THESE BEFORE TESTING ====================
+        accessKey: "ac_live_9603b0f29f072a98",
+        secretKey: "indc_live_a5bf0fd4c8427847",
+        // =====================================================================
+
+        mOrderId: mOrderId,
+        amount: data.amount,
+        remark: "Test Payment - Secure Checkout",
+
+        successUrl: "https://www.google.com/",
+        failedUrl: "https://www.apple.com/in/",
+
+        customer: {
+          name: data.name,
+          email: data.email,
+          phone: data.phone
+        },
+
+        mState: "pg",
+
+        mAllowPaymentMethods: {
+          web: ["upidqr", "upicollect"],
+          mobile: ["upicollect", "nb"]
+        },
+
+        onInitialized: function (response) {
+          console.log("onInitialized response ===>", response);
+        },
+
+        onSuccess: function (response) {
+          console.log("✅ onSuccess response ===>", response);
+
+          const merchantOrderId = response.merchant_order_id || response.merchantOrderId || mOrderId;
+        const indicTransactionId = response.indic_transaction_id || response.indicTransactionId || "";
+
+          // fetch("http://88.222.241.64:9856/api/user/verifyWalletPayment", {
+          fetch("https://api.astrofirst.in/api/user/verifyWalletPayment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              merchantOrderId: merchantOrderId,
+              indicTransactionId: indicTransactionId,
+              status: "success"
+            })
+          })
+            .then(res => res.json())
+            .then(apiRes => {
+              console.log("Backend verify response:", apiRes);
+              alert("🎉 Payment Successful!\nTransaction ID: " + indicTransactionId);
+            })
+            .catch(err => {
+              console.error("Failed to update backend:", err);
+              alert("Payment Successful but server update failed. Please contact support.");
+            });
+        },
+
+        onFailed: function (response) {
+          console.log("❌ onFailed response ===>", response);
+          const merchantOrderId = response.merchant_order_id || response.merchantOrderId || mOrderId;
+        const indicTransactionId = response.indic_transaction_id || response.indicTransactionId || "";
+
+        // 🔥 API call to your backend
+        // fetch("http://88.222.241.64:9856/api/user/verifyWalletPayment", {
+        fetch("https://api.astrofirst.in/api/user/verifyWalletPayment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            merchantOrderId: merchantOrderId,
+            indicTransactionId: indicTransactionId,
+            status: "failed"
+          })
+        })
+        .then(() => {
+          alert("Payment Failed. Please try again.");
+        })
+        .catch(err => {
+          console.error("Failed to update backend:", err);
+          alert("Payment Failed. Please try again.");
+        });
+      },
+
+        onClose: function (error) {
+          console.log("Modal closed:", error);
+        }
+      });
+
+      pg.open();
+    });
+
+    // Run when page loads
+    window.onload = initializeCheckout;
+  </script>
+
+</body>
+
+</html>

@@ -7,9 +7,9 @@ const {
   getAggTrade,
   getTicker24Hr
 } = require("../controllers/user/pi42PublicEndpoints/pi42PublicEndpoints");
-const { createPi42User, getPi42User, getUserMeta } = require("../controllers/user/pi42UserAccount/pi42UserAccount");
+const { createPi42UserAccount, getPi42User, getUserMeta } = require("../controllers/user/pi42UserAccount/pi42UserAccount");
 const { depositINR, withdrawINR, getDepositWithdrawHistory, getFuturesWalletDetails } = require("../controllers/user/pi42Wallet/pi42Wallet");
-const { placeOrder, placeOrderWithLeverage, getOrderByClientOrderId, getMultipleOrdersByClientOrderId, getOpenOrders, cancelOrder, cancelAllOrders } = require("../controllers/user/pi42Orders/pi42Orders");
+const { placeOrder, placeOrderWithLeverage, getOrderByClientOrderId, getMultipleOrdersByClientOrderId, getOpenOrders, editOrder, cancelOrder, cancelAllOrders } = require("../controllers/user/pi42Orders/pi42Orders");
 const { getPositions, getPositionById, getPositionsHistory, closeAllPositions, getMultiplePositions, setAutoTopUp, setAutoTopUpPreference, reversePosition } = require("../controllers/user/pi42Positions/pi42Positions");
 const { updateLeverage } = require("../controllers/user/pi42Leverage/pi42Leverage");
 const { getTransactionHistory, getTransactionHistorySync, getTransactionHistoryById } = require("../controllers/user/pi42Transaction/pi42Transaction");
@@ -27,9 +27,9 @@ router.get("/agg-trade/:contractPair", getAggTrade);
 router.get("/ticker24Hr/:contractPair", getTicker24Hr);
 
 // user
-router.get("/create-user", createPi42User);
+router.get("/create-user", createPi42UserAccount);
 router.get("/get-user", getPi42User);
-router.get("/user-meta", getUserMeta);
+router.get("/user-meta", getUserMeta); // will return leverage preference, auto top-up
 
 // wallet
 router.post("/deposit-inr", depositINR);
@@ -46,8 +46,9 @@ router.get("/transaction-history-by-id", getTransactionHistoryById);
 router.post("/place-order", placeOrder);
 router.post("/place-order-with-leverage", placeOrderWithLeverage);
 router.get("/order-by-client-order-id", getOrderByClientOrderId);
-router.post("/get-multiple", getMultipleOrdersByClientOrderId);
+router.post("/order/get-multiple", getMultipleOrdersByClientOrderId);
 router.get("/open-orders", getOpenOrders);  // open-orders vs order-history
+router.post("/edit-order", editOrder);
 router.post("/delete-order", cancelOrder);
 router.post("/cancel-all-orders", cancelAllOrders);
 
