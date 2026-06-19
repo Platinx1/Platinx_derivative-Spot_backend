@@ -82,6 +82,7 @@ function getAuthHeaders(
   body = null,
   apiKey = process.env.API_KEY,
   apiSecret = process.env.API_SECRET,
+  epochUnit = "ms"
 ) {
   if (!apiKey || !apiSecret) {
     throw new Error("API_KEY or API_SECRET not set in env");
@@ -91,7 +92,11 @@ function getAuthHeaders(
   console.log("Query params:", queryParams);
   console.log("Body:", body);
 
-  const epoch = Date.now().toString();
+  // const epoch = Date.now().toString();
+  const epoch =
+    epochUnit === "s"
+      ? Math.floor(Date.now() / 1000).toString() // seconds for DMA B2B API
+      : Date.now().toString();  
 
   const queryString = new URLSearchParams(queryParams).toString();
   let signingPath = path;
@@ -113,7 +118,7 @@ function getAuthHeaders(
     message += bodyStr;
   }
 
-  console.log("Signature Message:", message);
+  console.log("Signature Message:::::::::", message);
   console.log("Signing path:", signingPath);
 
   const signature = generateSignature(message, apiSecret);

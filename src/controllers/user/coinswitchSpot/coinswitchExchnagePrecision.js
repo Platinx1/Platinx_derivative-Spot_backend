@@ -12,6 +12,8 @@ const ENDPOINTS = {
 exports.getExchangePrecision = catchAsync(async (req, res, next) => {
   const { exchange = "coinswitchx", symbol } = req.body;
 
+  const { apiKey, apiSecret } = req.coinswitchAccount ;
+
   // Validate exchange (required)
   const validExchanges = ["coinswitchx", "wazirx", "c2c1", "c2c2"];
   const exchangeLower = exchange.toLowerCase();
@@ -36,7 +38,7 @@ exports.getExchangePrecision = catchAsync(async (req, res, next) => {
   // For signing: query is empty, payload goes in body
   const { fullUrl, fullPath } = buildUrlAndParams(path, {}, bodyPayload);
 
-  const headers = getAuthHeaders(method, fullPath, {}); // no query params
+  const headers = getAuthHeaders(method, fullPath, {}, null, apiKey, apiSecret); // no query params
 
   console.log("headers===========================================:", headers);
 

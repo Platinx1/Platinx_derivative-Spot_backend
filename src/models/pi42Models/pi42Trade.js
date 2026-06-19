@@ -13,7 +13,7 @@ const pi42TradeSchema = new Schema(
     },
 
     // Primary keys from Pi42
-    tradeId: { type: Number, required: true, unique: true, index: true },
+    tradeId: { type: Number, required: true, index: true },
     clientOrderId: { type: String, index: true },
     positionId: { type: String, index: true },
 
@@ -25,12 +25,13 @@ const pi42TradeSchema = new Schema(
       trim: true 
     }, // symbol in response
 
-    price: { ...D("0"), required: true },                    // executedPrice
-    quantity: { ...D("0"), required: true },                 // executedQuantity
+    price: { ...D("0"), required: true },      // executedPrice
+    quantity: { ...D("0"), required: true },   // executedQuantity
 
     side: { 
       type: String, 
       enum: ["BUY", "SELL"], 
+      index: true,
       required: true 
     },
 
@@ -77,7 +78,7 @@ pi42TradeSchema.index({ pi42Account: 1, tradeId: 1 }, { unique: true });
 pi42TradeSchema.index({ pi42Account: 1, pi42TradeTime: -1 });
 pi42TradeSchema.index({ contractPair: 1, pi42TradeTime: -1 });
 pi42TradeSchema.index({ clientOrderId: 1 });
-pi42TradeSchema.index({ positionId: 1 });
+pi42TradeSchema.index({ positionId: 1, side: 1 });
 
 const Pi42Trade = mongoose.model("Pi42Trade", pi42TradeSchema);
 module.exports = Pi42Trade;

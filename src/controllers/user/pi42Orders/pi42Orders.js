@@ -3,19 +3,19 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
+const validatePrecision = require("../../../utils/validatePrecision");
+const Pi42Pairs = require("../../../models/pi42Models/pi42Pairs");
 
 const { createPi42Order, cancelPi42Order, cancelAllPi42Orders } = require("../../../services/pi42OrderService");
 const { getPi42User } = require("../../../services/pi42UserService");
 
 exports.placeOrder = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     placeType, // ORDER_FORM | POSITION
     quantity,
     side, // BUY | SELL
     symbol,
-    type, // ("MARKET", "LIMIT" in case of ORDER_FORM)   (MARKET, STOP_MARKET,LIMIT in case of POSITION)
+    type, // ("MARKET", "LIMIT" in case of ORDER_FORM)  (MARKET, STOP_MARKET,LIMIT in case of POSITION)
     price,
     reduceOnly = false,
     positionId,
@@ -24,7 +24,8 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
     marginAsset = "INR",
   } = req.body;
 
-  // 🔥 Common validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
     return next(new AppError("userId and accountId are required", 400));
   }
@@ -35,6 +36,63 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
 
   if (Number(quantity) <= 0) {
     return next(new AppError("Quantity must be greater than 0", 400));
+  }
+
+  const pairData = await Pi42Pairs.findOne({ name: symbol });
+
+  if (!pairData) {
+    return next(
+      new AppError(`Pair configuration not found for symbol: ${symbol}`, 404)
+    );
+  }
+
+  const quantityPrecision = Number(pairData.quantityPrecision);
+  const pricePrecision = Number(pairData.pricePrecision);
+
+  // quantity
+  if (!validatePrecision(quantity, quantityPrecision)) {
+    return next(
+      new AppError(
+        `Quantity can have maximum ${quantityPrecision} decimal place(s) for ${symbol}`,
+        400
+      )
+    );
+  }
+
+  // price
+  if (price !== undefined) {
+    if (!validatePrecision(price, pricePrecision)) {
+      return next(
+        new AppError(
+          `Price can have maximum ${pricePrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
+  }
+
+  // stopLossPrice
+  if (stopLossPrice !== undefined) {
+    if (!validatePrecision(stopLossPrice, pricePrecision)) {
+      return next(
+        new AppError(
+          `stopLossPrice can have maximum ${pricePrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
+  }
+
+  // takeProfitPrice
+  if (takeProfitPrice !== undefined) {
+    if (!validatePrecision(takeProfitPrice, pricePrecision)) {
+      return next(
+        new AppError(
+          `takeProfitPrice can have maximum ${pricePrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
   }
 
   const userData = await getPi42User(userId, accountId);
@@ -135,12 +193,12 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
   // ========================
   // Save to Database using service
   // ========================
-  try {
-    await createPi42Order(userData._id, response);
-  } catch (saveErr) {
-    console.error("❌ Failed to save Pi42Order to DB:", saveErr);
-    // We still return success because order was placed on exchange
-  }
+  // try {
+  //   // await createPi42Order(userData._id, response);
+  // } catch (saveErr) {
+  //   console.error("❌ Failed to save Pi42Order to DB:", saveErr);
+  //   // We still return success because order was placed on exchange
+  // }
 
   res.status(200).json({
     status: true,
@@ -151,8 +209,6 @@ exports.placeOrder = catchAsync(async (req, res, next) => {
 
 exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     placeType, // ORDER_FORM | POSITION
     quantity,
     reduceOnly = false,
@@ -165,9 +221,11 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
     marginAsset = "INR",
     leverage,
     positionId,
+    stopPrice
   } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
     return next(new AppError("userId and accountId are required", 400));
   }
@@ -195,9 +253,95 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
     return next(new AppError("positionId is required for POSITION", 400));
   }
 
+  // ====================== STOP ORDER VALIDATIONS ======================
+  
+  if (type === "STOP_MARKET") {
+    if (!stopPrice) {
+      return next(new AppError("stopPrice is required for STOP_MARKET order", 400));
+    }
+  }
+
+  if (type === "STOP_LIMIT") {
+    if (!stopPrice) {
+      return next(new AppError("stopPrice is required for STOP_LIMIT order", 400));
+    }
+    if (!price) {
+      return next(new AppError("price (Limit Price) is required for STOP_LIMIT order", 400));
+    }
+  }
+
+  // ====================== BASIC VALIDATIONS ======================
+
   if (type === "LIMIT" && !price) {
     return next(new AppError("price is required for LIMIT orders", 400));
   }
+
+  let pairData = null;
+
+  if (symbol) {
+    pairData = await Pi42Pairs.findOne({ name: symbol });
+
+    if (!pairData) {
+      return next(
+        new AppError(`Pair configuration not found for symbol: ${symbol}`, 404)
+      );
+    }
+  }
+
+  if (symbol && pairData) {
+    const quantityPrecision = Number(pairData.quantityPrecision);
+    const pricePrecision = Number(pairData.pricePrecision);
+
+    // quantity validation
+    if (!validatePrecision(quantity, quantityPrecision)) {
+      return next(
+        new AppError(
+          `Quantity can have maximum ${quantityPrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
+
+    // price validation
+    if (
+      price !== undefined &&
+      !validatePrecision(price, pricePrecision)
+    ) {
+      return next(
+        new AppError(
+          `Price can have maximum ${pricePrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
+
+    // stopLossPrice validation
+    if (
+      stopLossPrice !== undefined &&
+      !validatePrecision(stopLossPrice, pricePrecision)
+    ) {
+      return next(
+        new AppError(
+          `stopLossPrice can have maximum ${pricePrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
+
+    // takeProfitPrice validation
+    if (
+      takeProfitPrice !== undefined &&
+      !validatePrecision(takeProfitPrice, pricePrecision)
+    ) {
+      return next(
+        new AppError(
+          `takeProfitPrice can have maximum ${pricePrecision} decimal place(s) for ${symbol}`,
+          400
+        )
+      );
+    }
+  }
+
 
   // const userData = await Pi42Account.findOne({ pi42UserId: userId, pi42AccountId: accountId });
   const userData = await getPi42User(userId, accountId);
@@ -224,7 +368,7 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
     reduceOnly,
     side,
     type,
-    leverage: Number(leverage),
+    leverage: Number(leverage)
   };
 
   if (placeType === "ORDER_FORM") {
@@ -239,6 +383,7 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
   if (price) body.price = Number(price);
   if (stopLossPrice) body.stopLossPrice = Number(stopLossPrice);
   if (takeProfitPrice) body.takeProfitPrice = Number(takeProfitPrice);
+  if (stopPrice) body.stopPrice = Number(stopPrice);
 
   let response;
 
@@ -253,8 +398,8 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
 
     return next(
       new AppError(
-        err?.response?.data?.message ||
-          "Failed to place order with leverage",
+        err?.response?.data?.details ||
+        "Failed to place order with leverage",
         err?.response?.status || 500
       )
     );
@@ -264,12 +409,12 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
     return next(new AppError("Order placement failed", 500));
   }
 
-  try {
-    await createPi42Order(userData._id, response);
-  } catch (saveErr) {
-    console.error("❌ Failed to save Pi42Order to DB:", saveErr);
-    // We still return success because order was placed on exchange
-  }
+  // try {
+  //   await createPi42Order(userData._id, response);
+  // } catch (saveErr) {
+  //   console.error("❌ Failed to save Pi42Order to DB:", saveErr);
+  //   // We still return success because order was placed on exchange
+  // }
 
   res.status(200).json({
     status: true,
@@ -279,13 +424,12 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
 });
 
 exports.getOrderByClientOrderId = catchAsync(async (req, res, next) => {
-  const { userId, accountId, clientOrderId } = req.query;
+  const { clientOrderId } = req.query;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!clientOrderId) {
@@ -345,13 +489,12 @@ exports.getOrderByClientOrderId = catchAsync(async (req, res, next) => {
 });
 
 exports.getMultipleOrdersByClientOrderId = catchAsync(async (req, res, next) => {
-  const { userId, accountId, clientOrderIds } = req.body;
+  const { clientOrderIds } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!clientOrderIds || !Array.isArray(clientOrderIds)) {
@@ -420,18 +563,16 @@ exports.getMultipleOrdersByClientOrderId = catchAsync(async (req, res, next) => 
 
 exports.getOpenOrders = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     startTimestamp,
     endTimestamp,
     sortOrder = "desc",
     pageSize = 50,
   } = req.query;
 
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   const endpoint = `/v1/order/open-orders`;
@@ -490,8 +631,6 @@ exports.getOpenOrders = catchAsync(async (req, res, next) => {
 
 exports.editOrder = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     clientOrderId,
     quantity,
     price,
@@ -499,11 +638,10 @@ exports.editOrder = catchAsync(async (req, res, next) => {
     type, // 👈 IMPORTANT (LIMIT / STOP_LIMIT / STOP_MARKET)
   } = req.body;
 
-  // 🔥 basic validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!clientOrderId) {
@@ -613,12 +751,16 @@ exports.editOrder = catchAsync(async (req, res, next) => {
 });
 
 exports.cancelOrder = catchAsync(async (req, res, next) => {
-  const { userId, accountId, clientOrderId } = req.body;
+  const { clientOrderId } = req.body;
 
-  if (!userId || !accountId || !clientOrderId) {
-    return next(
-      new AppError("userId, accountId and clientOrderId are required", 400)
-    );
+  const { userId, accountId } = req.pi42Account;
+
+  if (!userId || !accountId) {
+    return next(new AppError("userId and accountId are required", 400));
+  }
+
+  if (!clientOrderId) {
+    return next(new AppError("clientOrderId is required", 400));
   }
 
   const userData = await getPi42User(userId, accountId);
@@ -675,12 +817,12 @@ exports.cancelOrder = catchAsync(async (req, res, next) => {
 });
 
 exports.cancelAllOrders = catchAsync(async (req, res, next) => {
-  const { userId, accountId, symbols, baseAsset, marginAsset } = req.body;
+  const { symbols, baseAsset, marginAsset } = req.body;
+
+  const { userId, accountId } = req.pi42Account;
 
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   const userData = await getPi42User(userId, accountId);

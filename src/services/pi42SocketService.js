@@ -1,5 +1,5 @@
 const io = require("socket.io-client");
-const { cancelPi42OrderFromSocket, updatePartiallyFilledPi42OrderFromSocket, updateFilledPi42OrderFromSocket } = require("./pi42OrderService");
+const { cancelPi42OrderFromSocket, updatePartiallyFilledPi42OrderFromSocket, updateFilledPi42OrderFromSocket, handleOrderFailed } = require("./pi42OrderService");
 const { getPi42UserByAccountId } = require("./pi42UserService");
 const { createPi42TradeFromSocket } = require("./pi42TradeService");
 const { createPi42WalletTransactionsFromTrade } = require("./pi42WalletTransactionService");
@@ -92,8 +92,15 @@ const connectPi42Socket = () => {
       }
     });
 
-    socket.on("orderFailed", async (data) => {
-      console.log("🚨 Order Failed:", data);
+    socket.on("orderFailed", async (orderFailedData) => {
+      console.log("🚨 Order Failed:", orderFailedData);
+
+      try {
+        await handleOrderFailed(orderFailedData);
+      } catch (error) {
+        console.error("❌ Error handling order failure:", error);
+      }
+      
     });
 
     socket.on("cancelOrderRequestFailed", async (data) => {
@@ -136,7 +143,7 @@ const connectPi42Socket = () => {
           return;
         }
 
-        //await updatePi42PositionFromSocket(user._id, updatePositionData);
+        await updatePi42PositionFromSocket(user._id, updatePositionData);
 
       } catch (error) {
         console.error("❌ Error updating position:", error);

@@ -6,13 +6,12 @@ const buildHeaders = require("../../../utils/buildHeaders");
 
 
 exports.updateLeverage = catchAsync(async (req, res, next) => {
-  const { userId, accountId, leverage, contractName } = req.body;
+  const { leverage, contractName } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!leverage || !contractName) {

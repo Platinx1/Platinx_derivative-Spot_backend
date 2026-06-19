@@ -5,41 +5,33 @@ const subAccountSchema = new Schema(
   {
     // 🔹 Platinx registered User
     userId: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
+      type: String,
       required: true,
       index: true,
     },
 
-    // 🔹 Sub Account Name
+    // 🔹 Sub Account Display Name
     name: {
       type: String,
       default: "Main Account",
       trim: true,
     },
 
-    // 🔹 Sub Account Type
+    // 🔹 Sub Account Type (CoinSwitch doesn't differentiate — this is your internal classification)
     type: {
       type: String,
-      enum: ["MAIN", "BOT", "COPY_TRADING"], // ❌ Removed "FUTURES"
+      enum: ["MAIN", "BOT", "COPY_TRADING"],
       default: "MAIN",
       index: true,
     },
 
-    // 🔹 Account Status
-    status: {
-      type: String,
-      enum: ["ACTIVE", "SUSPENDED", "LIQUIDATED"],
-      default: "ACTIVE",
-      index: true,
-    },
-
-    // 🔹 External Exchange Mapping
+    // 🔹 Exchange Info
     exchange: {
       type: String,
       default: "COINSWITCH",
     },
 
+    // 🔹 CoinSwitch Subaccount ID (int64 from API, store as String to avoid precision loss)
     exchangeSubAccountId: {
       type: String,
       index: true,
@@ -47,34 +39,40 @@ const subAccountSchema = new Schema(
       sparse: true,
     },
 
-    // 🔹 Trading Permissions (✅ NEW)
-    spotTradingEnabled: {
-      type: Boolean,
-      default: true, // Spot enabled by default
+    // 🔹 CoinSwitch API Credentials for this subaccount
+    // ⚠️ Store encrypted in production — never plain text
+    apiKey: {
+      type: String,
+      select: false, // Never returned in queries by default
     },
 
-    futuresTradingEnabled: {
-      type: Boolean,
-      default: false, // User needs to enable futures manually
+    apiSecret: {
+      type: String,
+      select: false, // Never returned in queries by default
     },
 
-    // 🔹 Risk Controls (Futures specific)
-    maxLeverage: {
-      type: Number,
-      default: 20,
-      min: 1,
-      max: 125,
+    // 🔹 Account Status
+    // ACTIVE   → is_active: true  (from CoinSwitch)
+    // SUSPENDED → is_active: false (disabled via PUT /master/subaccount/disable)
+    // LIQUIDATED → your internal state (e.g., funds recalled, account to be cleaned up)
+    status: {
+      type: String,
+      enum: ["ACTIVE", "SUSPENDED", "LIQUIDATED"],
+      default: "ACTIVE",
+      index: true,
     },
 
-    isAutoDeleveragingEnabled: {
+    // 🔹 Mirror of CoinSwitch's is_active flag
+    // Kept in sync with CoinSwitch — disabled subaccounts block TRANSFER_IN
+    isActive: {
       type: Boolean,
       default: true,
     },
 
-    // 🔹 Additional Flags
+    // 🔹 For algo/API traders on your platform
     isApiTradingEnabled: {
       type: Boolean,
-      default: false, // For algo traders
+      default: false,
     },
   },
   {
@@ -85,10 +83,10 @@ const subAccountSchema = new Schema(
   }
 );
 
-// Indexes
+// 🔹 Indexes
 subAccountSchema.index({ userId: 1, type: 1 });
-subAccountSchema.index({ exchangeSubAccountId: 1 });
 subAccountSchema.index({ userId: 1, status: 1 });
+subAccountSchema.index({ exchangeSubAccountId: 1 });
 
 const SubAccount = mongoose.model("SubAccount", subAccountSchema);
 module.exports = SubAccount;

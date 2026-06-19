@@ -1,26 +1,21 @@
 const axios = require("axios");
+const moment = require('moment-timezone');
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
+const Pi42Trade = require("../../../models/pi42Models/pi42Trade");
 
 
 
 exports.getTradeHistory = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     startTimestamp,
     endTimestamp,
     sortOrder = "desc",
     pageSize = 100,
   } = req.query;
 
-  // 🔥 validations
-  if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
-  }
+  const { userId, accountId } = req.pi42Account;
 
   if (!["asc", "desc"].includes(sortOrder)) {
     return next(new AppError("Invalid sortOrder", 400));
@@ -89,19 +84,12 @@ exports.getTradeHistory = catchAsync(async (req, res, next) => {
 
 exports.getTradeHistorySync = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     id,
     sortOrder = "desc",
     pageSize = 100,
   } = req.query;
 
-  // 🔥 validations
-  if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
-  }
+  const { userId, accountId } = req.pi42Account;
 
   if (!["asc", "desc"].includes(sortOrder)) {
     return next(new AppError("Invalid sortOrder", 400));
@@ -170,14 +158,9 @@ exports.getTradeHistorySync = catchAsync(async (req, res, next) => {
 
 
 exports.getTradeHistoryById = catchAsync(async (req, res, next) => {
-  const { userId, accountId, id } = req.query;
+  const { id } = req.query;
 
-  // 🔥 validations
-  if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
-  }
+  const { userId, accountId } = req.pi42Account;
 
   if (!id) {
     return next(new AppError("trade id is required", 400));
@@ -227,5 +210,58 @@ exports.getTradeHistoryById = catchAsync(async (req, res, next) => {
     status: true,
     message: "Trade history fetched successfully",
     data: response,
+  });
+});
+
+// getting from db
+exports.getTradesByPosition = catchAsync(async (req, res, next) => {
+  const { positionId, side } = req.query;
+
+  if (!positionId) {
+    return next(new AppError("positionId is required", 400));
+  }
+
+  if(!side) {
+    return next(new AppError("side is required", 400));
+  }
+
+  const filter = {
+    positionId: positionId,
+  };
+
+  // Side filter (optional)
+  if (side) {
+    filter.side = side.toUpperCase();
+  }
+
+  // Fetch all trades - newest first
+  const trades = await Pi42Trade.find(filter)
+    .sort({ pi42TradeTime: -1 })   // Descending order (newest first)
+    .lean();
+
+  // Format response
+  const formattedData = trades.map(trade => ({
+    tradeId: trade.tradeId,
+    contractPair: trade.contractPair,
+    side: trade.side,
+    tradeRole: trade.tradeRole,
+    price: Number(trade.price),
+    quantity: Number(trade.quantity),
+    realizedPnl: Number(trade.realizedPnl),
+    commission: Number(trade.commission),
+    commissionAsset: trade.commissionAsset,
+    marginAsset: trade.marginAsset,
+    date: trade.pi42TradeTime
+      ? moment(trade.pi42TradeTime)
+          .tz('Asia/Kolkata')
+          .format('DD MMM YYYY, hh:mm a')
+      : '',
+    pi42TradeTime: trade.pi42TradeTime,
+  }));
+
+  res.status(200).json({
+    status: true,
+    message: "Trades fetched successfully",
+    data: formattedData,
   });
 });

@@ -3,11 +3,118 @@ const axios = require("axios");
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
+const Pi42Trade = require("../../../models/pi42Models/pi42Trade");
+const { getPi42UserByPlatinxUserId } = require("../../../services/pi42UserService");
 
-exports.getPositions = catchAsync(async (req, res, next) => {
+// exports.getPositions = catchAsync(async (req, res, next) => {
+//   const {
+//     userId,
+//     accountId,
+//     user,
+//     positionStatus, // OPEN | CLOSED | LIQUIDATED
+//     startTimestamp,
+//     endTimestamp,
+//     sortOrder = "desc",
+//     pageSize = 100,
+//   } = req.query;
+
+//   // if(!user) return next(new AppError("user query param is required", 400));
+
+//   if (!positionStatus) {
+//     return next(
+//       new AppError("positionStatus is required (OPEN, CLOSED, LIQUIDATED)", 400)
+//     );
+//   }
+
+//   // const pi42User = await getPi42UserByPlatinxUserId(user);
+//   // if (!pi42User) {
+//   //   return next(new AppError("PI42 user not found", 404));
+//   // }
+
+//   // const userId = pi42User.pi42UserId.toString();
+//   // const accountId = pi42User.pi42AccountId.toString();
+
+//   // 🔥 validations
+//   if (!userId || !accountId) {
+//     return next(
+//       new AppError("userId and accountId are required", 400)
+//     );
+//   }
+
+
+
+//   const allowedStatus = ["OPEN", "CLOSED", "LIQUIDATED"];
+//   if (!allowedStatus.includes(positionStatus)) {
+//     return next(
+//       new AppError("Invalid positionStatus", 400)
+//     );
+//   }
+
+//   if (Number(pageSize) > 100) {
+//     return next(new AppError("pageSize max is 100", 400));
+//   }
+
+//   if (!["asc", "desc"].includes(sortOrder)) {
+//     return next(new AppError("Invalid sortOrder", 400));
+//   }
+
+//   const endpoint = `/v1/positions/${positionStatus}`;
+//   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
+
+//   // 🔹 headers
+//   const headers = buildHeaders(
+//     process.env.PARTNER_NAME,
+//     process.env.API_COOKIE,
+//     userId,
+//     accountId
+//   );
+
+//   // 🔹 query params
+//   const params = {
+//     sortOrder,
+//     pageSize: Number(pageSize),
+//   };
+
+//   if (startTimestamp) params.startTimestamp = Number(startTimestamp);
+//   if (endTimestamp) params.endTimestamp = Number(endTimestamp);
+
+//   let response;
+
+//   try {
+//     const apiRes = await axios.get(url, {
+//       headers,
+//       params,
+//     });
+
+//     response = apiRes.data;
+//   } catch (err) {
+//     console.error(
+//       "❌ PI42 Positions Error:",
+//       err?.response?.data || err.message
+//     );
+
+//     return next(
+//       new AppError(
+//         err?.response?.data?.details || "Failed to fetch positions",
+//         err?.response?.status || 500
+//       )
+//     );
+//   }
+
+//   if (!response) {
+//     return next(new AppError("No positions found", 500));
+//   }
+
+//   res.status(200).json({
+//     status: true,
+//     message: `${positionStatus} positions fetched successfully`,
+//     data: response,
+//   });
+// });
+
+
+exports.getPositions11 = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     positionStatus, // OPEN | CLOSED | LIQUIDATED
     startTimestamp,
     endTimestamp,
@@ -15,16 +122,18 @@ exports.getPositions = catchAsync(async (req, res, next) => {
     pageSize = 100,
   } = req.query;
 
-  // 🔥 validations
-  if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
-  }
+  const { userId, accountId } = req.pi42Account;
 
   if (!positionStatus) {
     return next(
       new AppError("positionStatus is required (OPEN, CLOSED, LIQUIDATED)", 400)
+    );
+  }
+
+  // 🔥 validations
+  if (!userId || !accountId) {
+    return next(
+      new AppError("userId and accountId are required", 400)
     );
   }
 
@@ -98,8 +207,22 @@ exports.getPositions = catchAsync(async (req, res, next) => {
 });
 
 
-exports.getPositionById = catchAsync(async (req, res, next) => {
-  const { userId, accountId, positionId } = req.query;
+exports.getPositions = catchAsync(async (req, res, next) => {
+  const {
+    positionStatus, // OPEN | CLOSED | LIQUIDATED
+    startTimestamp,
+    endTimestamp,
+    sortOrder = "desc",
+    pageSize = 100,
+  } = req.query;
+
+  const { userId, accountId } = req.pi42Account;
+
+  if (!positionStatus) {
+    return next(
+      new AppError("positionStatus is required (OPEN, CLOSED, LIQUIDATED)", 400)
+    );
+  }
 
   // 🔥 validations
   if (!userId || !accountId) {
@@ -108,10 +231,118 @@ exports.getPositionById = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (!positionId) {
+  const allowedStatus = ["OPEN", "CLOSED", "LIQUIDATED"];
+  if (!allowedStatus.includes(positionStatus)) {
     return next(
-      new AppError("positionId is required", 400)
+      new AppError("Invalid positionStatus", 400)
     );
+  }
+
+  if (Number(pageSize) > 100) {
+    return next(new AppError("pageSize max is 100", 400));
+  }
+
+  if (!["asc", "desc"].includes(sortOrder)) {
+    return next(new AppError("Invalid sortOrder", 400));
+  }
+
+  const endpoint = `/v1/positions/${positionStatus}`;
+  const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
+
+  // 🔹 headers
+  const headers = buildHeaders(
+    process.env.PARTNER_NAME,
+    process.env.API_COOKIE,
+    userId,
+    accountId
+  );
+
+  // 🔹 query params
+  const params = {
+    sortOrder,
+    pageSize: Number(pageSize),
+  };
+
+  if (startTimestamp) params.startTimestamp = Number(startTimestamp);
+  if (endTimestamp) params.endTimestamp = Number(endTimestamp);
+
+  let response;
+
+  try {
+    const apiRes = await axios.get(url, {
+      headers,
+      params,
+    });
+
+    response = apiRes.data;
+  } catch (err) {
+    console.error(
+      "❌ PI42 Positions Error:",
+      err?.response?.data || err.message
+    );
+
+    return next(
+      new AppError(
+        err?.response?.data?.details || "Failed to fetch positions",
+        err?.response?.status || 500
+      )
+    );
+  }
+
+  if (!response) {
+    return next(new AppError("No positions found", 500));
+  }
+
+  // 🔥 IMPORTANT: Sirf CLOSED positions ke liye sellPrice add karo
+  let finalData = response;
+
+  if (positionStatus === "CLOSED" && Array.isArray(finalData) && finalData.length > 0) {
+
+    // Get all positionIds from closed positions
+    const positionIds = finalData.map(pos => pos.positionId);
+
+    // Fetch corresponding SELL trades for these positions
+    const trades = await Pi42Trade.find({
+      positionId: { $in: positionIds },
+      side: "SELL"                    // Closing LONG positions
+    }).select("positionId price");
+
+    // Create a map for quick lookup
+    const tradeMap = new Map();
+    trades.forEach(trade => {
+      tradeMap.set(trade.positionId, trade.price);
+    });
+
+    // Add sellPrice to each closed position
+    finalData = finalData.map(position => {
+      const sellPrice = tradeMap.get(position.positionId);
+      
+      return {
+        ...position,
+        sellPrice: sellPrice ? Number(sellPrice) : null,   // null if not found
+      };
+    });
+  }
+
+  res.status(200).json({
+    status: true,
+    message: `${positionStatus} positions fetched successfully`,
+    data: finalData,
+  });
+});
+
+
+exports.getPositionById = catchAsync(async (req, res, next) => {
+
+  const { userId, accountId } = req.pi42Account;
+  const { positionId } = req.query;
+
+  if (!positionId) {
+    return next(new AppError("positionId is required", 400));
+  }
+
+  if (!userId || !accountId) {
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   const endpoint = `/v1/positions`;
@@ -168,8 +399,6 @@ exports.getPositionById = catchAsync(async (req, res, next) => {
 exports.getPositionsHistory = catchAsync(async (req, res, next) => {
   // ?status=CLOSED&status=LIQUIDATED
   const {
-    userId,
-    accountId,
     startTimestamp,
     endTimestamp,
     sortOrder = "desc",
@@ -178,11 +407,11 @@ exports.getPositionsHistory = catchAsync(async (req, res, next) => {
     status, // can be string OR array
   } = req.query;
 
+  const { userId, accountId } = req.pi42Account;
+
   // 🔥 validations
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (Number(pageSize) < 5 || Number(pageSize) > 100) {
@@ -261,12 +490,12 @@ exports.getPositionsHistory = catchAsync(async (req, res, next) => {
 
 
 exports.closeAllPositions = catchAsync(async (req, res, next) => {
-  const { userId, accountId, marginAsset="INR" } = req.query;
+  const { marginAsset = "INR" } = req.query;
+
+  const { userId, accountId } = req.pi42Account;
 
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   const endpoint = `/v1/positions/close-all-positions`;
@@ -323,13 +552,12 @@ exports.closeAllPositions = catchAsync(async (req, res, next) => {
 
 
 exports.getMultiplePositions = catchAsync(async (req, res, next) => {
-  const { userId, accountId, positionIds } = req.body;
+  const { positionIds } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!positionIds || !Array.isArray(positionIds)) {
@@ -398,13 +626,12 @@ exports.getMultiplePositions = catchAsync(async (req, res, next) => {
 
 // auto top up for a position
 exports.setAutoTopUp = catchAsync(async (req, res, next) => {
-  const { userId, accountId, positionId, autoTopUp } = req.body;
+  const { positionId, autoTopUp } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!positionId) {
@@ -468,13 +695,12 @@ exports.setAutoTopUp = catchAsync(async (req, res, next) => {
 
 
 exports.setAutoTopUpPreference = catchAsync(async (req, res, next) => {
-  const { userId, accountId, autoTopUp } = req.body;
+  const { autoTopUp } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (typeof autoTopUp !== "boolean") {
@@ -531,13 +757,12 @@ exports.setAutoTopUpPreference = catchAsync(async (req, res, next) => {
 
 
 exports.reversePosition = catchAsync(async (req, res, next) => {
-  const { userId, accountId, positionId } = req.body;
+  const { positionId } = req.body;
 
-  // 🔥 validations
+  const { userId, accountId } = req.pi42Account;
+
   if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
+    return next(new AppError("userId and accountId are required", 400));
   }
 
   if (!positionId) {

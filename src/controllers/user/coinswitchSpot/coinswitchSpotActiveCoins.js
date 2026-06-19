@@ -12,6 +12,8 @@ const ENDPOINTS = {
 exports.getSupportedCoins = catchAsync(async (req, res, next) => {
   const { exchange = "coinswitchx" } = req.query;
 
+  const { apiKey, apiSecret } = req.coinswitchAccount ;
+
   // Validate exchange (optional but good practice)
   const validExchanges = ["coinswitchx", "wazirx", "c2c1", "c2c2"];
   if (!validExchanges.includes(exchange.toLowerCase())) {
@@ -29,7 +31,8 @@ exports.getSupportedCoins = catchAsync(async (req, res, next) => {
   const queryObj = { exchange };
   const { fullUrl } = buildUrlAndParams(path, queryObj);
 
-  const headers = getAuthHeaders(method, path, queryObj);
+  // const headers = getAuthHeaders(method, path, queryObj);
+  const headers = getAuthHeaders(method, path, queryObj, null, apiKey, apiSecret);
 
   console.log("headers===========================================:", headers);
 

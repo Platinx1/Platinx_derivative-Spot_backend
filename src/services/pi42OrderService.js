@@ -100,8 +100,10 @@ exports.cancelAllPi42Orders = async (pi42AccountId, filters = {}) => {
 };
 
 exports.cancelPi42OrderFromSocket = async (pi42Data) => {
+
+  console.log(":::::rejected::::::", pi42Data);
   await Pi42Order.findOneAndUpdate(
-    { clientOrderId : pi42Data.clientOrderId, isDeleted: false },
+    { clientOrderId : pi42Data.clientOrderId },
     {
       status: pi42Data.status, // "CANCELED"
       filledAmount: toDecimal128(pi42Data.filledAmount || pi42Data.executedAmount || 0),
@@ -169,7 +171,6 @@ exports.updatePartiallyFilledPi42OrderFromSocket = async (pi42Data) => {
   return updatedOrder;
 };
 
-
 exports.updateFilledPi42OrderFromSocket = async (pi42Data) => {
   if (!pi42Data?.clientOrderId) {
     throw new Error("Invalid order event data: clientOrderId is required");
@@ -229,4 +230,48 @@ exports.updateFilledPi42OrderFromSocket = async (pi42Data) => {
   ).exec();
 
   return updatedOrder;
+};
+
+exports.handleOrderFailed = async (pi42Data) => {
+  try {
+    const updateData = {
+      status: pi42Data.status,
+      pi42UpdatedAt: new Date(pi42Data.updateTime || pi42Data.time || Date.now()),
+
+      // Extra fields jo event mein aa rahe hain
+      price: toDecimal128(pi42Data.price),
+      stopPrice: toDecimal128(pi42Data.stopPrice),
+      orderAmount: toDecimal128(pi42Data.orderAmount),
+      filledAmount: toDecimal128(pi42Data.filledAmount || 0),
+      avgPrice: toDecimal128(pi42Data.avgPrice),
+      leverage: pi42Data.leverage,
+      baseAsset: pi42Data.baseAsset,
+      quoteAsset: pi42Data.quoteAsset,
+      marginAsset: pi42Data.marginAsset,
+      marginConversionRate: toDecimal128(pi42Data.marginConversionRate),
+      lockedMargin: toDecimal128(pi42Data.lockedMargin),
+      lockedMarginInMarginAsset: toDecimal128(pi42Data.lockedMarginInMarginAsset),
+
+      // Error reason store karna accha practice hai
+      errorMessage: pi42Data.reason || "Order rejected by exchange",
+    };
+
+    const updatedOrder = await Pi42Order.findOneAndUpdate(
+      { clientOrderId: pi42Data.clientOrderId },
+      updateData,
+      { 
+        new: true, 
+        upsert: false
+      }
+    );
+
+    if (!updatedOrder) {
+      console.warn(`Order not found for clientOrderId: ${pi42Data.clientOrderId}`);
+    }
+
+    return updatedOrder;
+  } catch (error) {
+    console.error("Error handling orderFailed event:", error);
+    throw error;
+  }
 };

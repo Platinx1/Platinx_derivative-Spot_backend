@@ -12,6 +12,8 @@ const ENDPOINTS = {
 // 📋 Get Trade Info (trading details, fees, status, etc. for exchange / symbol)
 exports.getTradeInfo = catchAsync(async (req, res, next) => {
   const { exchange = "coinswitchx", symbol = "BTC/INR" } = req.query;
+
+  const { apiKey, apiSecret } = req.coinswitchAccount ;
   
   // Validate exchange (required)
   const validExchanges = ["coinswitchx", "wazirx", "c2c1", "c2c2"];
@@ -36,7 +38,7 @@ exports.getTradeInfo = catchAsync(async (req, res, next) => {
   const { fullUrl, fullPath } = buildUrlAndParams(path, queryObj);
 
   // For GET → pass query params for signature generation
-  const headers = getAuthHeaders(method, fullPath, queryObj);
+  const headers = getAuthHeaders(method, fullPath, queryObj, null, apiKey, apiSecret);
 
   console.log("headers===========================================:", headers);
 

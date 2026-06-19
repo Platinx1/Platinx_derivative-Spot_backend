@@ -6,19 +6,12 @@ const buildHeaders = require("../../../utils/buildHeaders");
 
 exports.getMarginHistorySync = catchAsync(async (req, res, next) => {
   const {
-    userId,
-    accountId,
     id,
     pageSize = 100,
     symbol,
   } = req.query;
 
-  // 🔥 validations
-  if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
-  }
+  const { userId, accountId } = req.pi42Account;
 
   if (Number(pageSize) > 100) {
     return next(

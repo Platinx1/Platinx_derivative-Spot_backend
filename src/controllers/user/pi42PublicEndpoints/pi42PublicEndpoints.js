@@ -2,30 +2,56 @@ const axios = require("axios");
 
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
-const { getRequest, postRequest, patchRequest, putRequest, deleteRequest } = require("../../../utils/pi42ApiClient");
+const Pi42Pairs = require("../../../models/pi42Models/pi42Pairs");
 
 
-exports.fetchTicker24Hr = catchAsync(async (req, res, next) => {
-  const { contractPair = "BTCINR" } = req.params;
 
-  if (!contractPair) {
-    return next(new AppError("contractPair is required", 400));
-  }
+// exports.getExchangeInfo = catchAsync(async (req, res, next) => {
+//   const { market = "INR", pair } = req.query;
 
-  const endpoint = `/v1/market/ticker24Hr/${contractPair}`;
+//   let pairValue
 
-  const tickerData = await getRequest(endpoint, {}, process.env.PI42_PUBLIC_BASE_URL);
+//   if(pair) pairValue = pair.trim().toUpperCase();
 
-  if (!tickerData) {
-    return next(new AppError("Failed to fetch ticker data from PI42", 500));
-  }
+//   const endpoint = `/v1/exchange/exchangeInfo`;
+//   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}?market=${encodeURIComponent(market)}`;
 
-  res.status(200).json({
-    status: true,
-    message: "Ticker data fetched successfully",
-    data: tickerData,
-  });
-});
+//   let response;
+
+//   try {
+//     const apiRes = await axios.get(url); // simple GET request, no headers
+//     response = apiRes.data;
+//   } catch (err) {
+//     console.error(
+//       "❌ PI42 Get Exchange Info Error:",
+//       err?.response?.data || err.message
+//     );
+
+//     return next(
+//       new AppError(
+//         err?.response?.data?.message || "Failed to fetch exchange info",
+//         err?.response?.status || 500
+//       )
+//     );
+//   }
+
+//   if (!response) {
+//     return next(new AppError("Exchange info not found", 404));
+//   }
+
+//   let allData = response;
+
+//   if (pairValue) {
+//     allData = allData.contracts.filter(data => data.name === pairValue);
+//   }
+
+
+//   res.status(200).json({
+//     status: true,
+//     message: `Exchange info fetched successfully for market ${market}`,
+//     data: allData,
+//   });
+// });
 
 
 exports.getExchangeInfo = catchAsync(async (req, res, next) => {
@@ -57,21 +83,67 @@ exports.getExchangeInfo = catchAsync(async (req, res, next) => {
     );
   }
 
-  if (!response) {
-    return next(new AppError("Exchange info not found", 404));
+  const contracts =
+    response?.data?.contracts ||   // expected shape
+    response?.contracts ||          // fallback if top-level
+    [];
+ 
+  if (!contracts.length) {
+    console.error("❌ No contracts found. Full response:", JSON.stringify(response));
+    return next(new AppError("No contracts found to sync", 404));
   }
+ 
+  // Pick only the required fields from each contract
+  // const contractDocs = contracts.map((contract) => ({
+  //   name: contract.name,
+  //   contractName: contract.contractName,
+  //   makerFee: contract.makerFee,
+  //   takerFee: contract.takerFee,
+  //   maxLeverage: contract.maxLeverage,
+  //   liquidationFee: contract.liquidationFee,
+  //   pricePrecision: contract.pricePrecision,
+  //   quantityPrecision: contract.quantityPrecision,
+  //   marginBufferPercentage: contract.marginBufferPercentage,
+  //   depthGrouping: contract.depthGrouping[0],
+  //   iconUrl: contract.iconUrl,
+  // }));
 
-  let allData = response;
+  const contractDocs = contracts.map((contract) => {
 
-  if (pairValue) {
-    allData = allData.contracts.filter(data => data.name === pairValue);
-  }
+  // Find MIN_NOTIONAL filter
+  const minNotionalFilter = contract.filters?.find(
+    (f) => f.filterType === "MIN_NOTIONAL"
+  );
+
+  return {
+    name: contract.name,
+    contractName: contract.contractName,
+    makerFee: contract.makerFee,
+    takerFee: contract.takerFee,
+    maxLeverage: contract.maxLeverage,
+    liquidationFee: contract.liquidationFee,
+    pricePrecision: contract.pricePrecision,
+    quantityPrecision: contract.quantityPrecision,
+    marginBufferPercentage: contract.marginBufferPercentage,
+    depthGrouping: contract.depthGrouping[0],
+    iconUrl: contract.iconUrl,
+
+    // Save notional value
+    notional: minNotionalFilter?.notional || "0",
+  };
+});
+ 
+  // insertMany with ordered: false so one duplicate doesn't abort the whole batch
+  const inserted = await Pi42Pairs.insertMany(contractDocs, {
+    ordered: false,   // continues inserting even if some duplicates fail
+    rawResult: true,  // returns insertedCount etc.
+  });
 
 
   res.status(200).json({
     status: true,
     message: `Exchange info fetched successfully for market ${market}`,
-    data: allData,
+    // data: allData,
   });
 });
 

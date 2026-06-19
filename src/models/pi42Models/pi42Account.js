@@ -8,9 +8,9 @@ const pi42AccountSchema = new Schema(
       required: true,
       index: true,
     },
-    refId: { type: String, required: true, unique: true }, // Platinx ka reference
-    pi42UserId: { type: Number, required: true, unique: true },
-    pi42AccountId: { type: Number, required: true, unique: true },
+    refId: { type: String, required: true }, // Platinx ka reference
+    pi42UserId: { type: Number, required: true },
+    pi42AccountId: { type: Number, required: true},
 
     // Preferences (leverage, auto top-up, etc.)
     // defaultLeverage: { type: Number, default: 10 },
@@ -18,6 +18,7 @@ const pi42AccountSchema = new Schema(
 
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
+    isOptionsAccountCreated: { type: Boolean, default: false }, 
   },
   {
     timestamps: true,
