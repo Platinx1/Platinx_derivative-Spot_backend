@@ -86,26 +86,5 @@ pi42WalletTransactionSchema.index({ pi42Account: 1, asset: 1, pi42TransactionTim
 pi42WalletTransactionSchema.index({ referenceId: 1 });
 pi42WalletTransactionSchema.index({ transactionId: 1 });
 
-// pi42WalletTransactionSchema.statics.fromPi42Response = function (user, pi42Account, data) {
-//   return {
-//     pi42Account,
-//     transactionId: data.orderId || data.transactionId || data.id,
-//     referenceId: data.referenceId,
-//     type: data.paymentType || data.type, // deposit/withdraw ya trading type
-//     paymentStatus: data.paymentStatus || null,
-//     amount: toDecimal128(data.amount),
-//     fee: toDecimal128(data.fee ?? 0),
-//     amountCredited: toDecimal128(data.amountCredited ?? 0),
-//     amountDebited: toDecimal128(data.amountDebited ?? 0),
-//     asset: data.marginAsset || data.asset,
-//     contractPair: data.contractPair,
-//     positionId: data.positionId,
-//     orderId: data.orderId,
-//     tradeId: data.tradeId,
-//     adminRemarks: data.adminRemarks,
-//     pi42TransactionTime: data.updatedAt || data.createdAt ? new Date(data.updatedAt || data.createdAt) : new Date(),
-//   };
-// };
-
 const Pi42WalletTransaction = mongoose.model("Pi42WalletTransaction", pi42WalletTransactionSchema);
 module.exports = Pi42WalletTransaction;

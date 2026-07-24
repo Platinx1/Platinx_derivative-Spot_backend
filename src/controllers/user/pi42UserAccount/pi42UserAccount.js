@@ -7,104 +7,13 @@ const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
 const { updatePi42User } = require("../../../services/pi42UserService");
 const Pi42Account = require("../../../models/pi42Models/pi42Account");
-const SubAccount = require("../../../models/subAccountSchema");
+const CoinSwitchSpotAccount = require("../../../models/coinswitchModels/coinSwitchSpotAccount");
 
 // 🔥 Unique refId generator
 const generateRefId = () => {
   return `plx_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 };
 
-
-// exports.registerPlatinxUser = catchAsync(async (req, res, next) => {
-//   const { user } = req.body;
-
-//   // 🔹 Validate input
-//   if (!user) {
-//     return next(new AppError("userId is required", 400));
-//   }
-
-//   try {
-//     const trimmedUserId = String(user).trim();
-
-//     // =========================================================
-//     // 🔹 CHECK EXISTING SPOT ACCOUNT
-//     // =========================================================
-//     let spotAccount = await SubAccount.findOne({
-//       userId: trimmedUserId,
-//     }).lean();
-
-//     // =========================================================
-//     // 🔹 CHECK EXISTING FUTURES ACCOUNT
-//     // =========================================================
-//     let futuresAccount = await Pi42Account.findOne({
-//       user: trimmedUserId,
-//       isDeleted: false,
-//     }).lean();
-
-//     // =========================================================
-//     // 🔹 IF BOTH ALREADY EXIST
-//     // =========================================================
-//     if (spotAccount && futuresAccount) {
-//       return res.status(200).json({
-//         status: true,
-//         message:
-//           "User already registered for both spot and futures trading",
-//         data: {
-//           spotAccount,
-//           futuresAccount,
-//         },
-//       });
-//     }
-
-//     // =========================================================
-//     // 🔹 CREATE SPOT ACCOUNT IF NOT EXISTS
-//     // =========================================================
-//     if (!spotAccount) {
-//       const newSpotAccount = new SubAccount({
-//         userId: trimmedUserId,
-//       });
-
-//       await newSpotAccount.save({ validateBeforeSave: false });
-
-//       spotAccount = newSpotAccount;
-//     }
-
-//     // =========================================================
-//     // 🔹 CREATE FUTURES ACCOUNT IF NOT EXISTS
-//     // =========================================================
-//     if (!futuresAccount) {
-//       const newFuturesAccount = new Pi42Account({
-//         user: trimmedUserId,
-//         isActive: true,
-//         isDeleted: false,
-//       });
-
-//       await newFuturesAccount.save({ validateBeforeSave: false });
-
-//       futuresAccount = newFuturesAccount;
-//     }
-
-//     // =========================================================
-//     // 🔹 SUCCESS RESPONSE
-//     // =========================================================
-//     return res.status(201).json({
-//       status: true,
-//       message:
-//         "User registered successfully for spot and futures trading",
-//       data: {
-//         spotAccount,
-//         futuresAccount,
-//       },
-//     });
-
-//   } catch (err) {
-//     console.error("❌ DB Error:", err.message);
-
-//     return next(
-//       new AppError("Failed to register user", 500)
-//     );
-//   }
-// });
 
 
 exports.registerPlatinxUser = catchAsync(async (req, res, next) => {
@@ -120,8 +29,9 @@ exports.registerPlatinxUser = catchAsync(async (req, res, next) => {
     // =========================================================
     // 🔹 CHECK EXISTING SPOT ACCOUNT
     // =========================================================
-    let spotAccount = await SubAccount.findOne({
-      userId: trimmedUserId,
+    let spotAccount = await CoinSwitchSpotAccount.findOne({
+      user: trimmedUserId,
+      isActive: true,
     }).lean();
 
     // =========================================================
@@ -141,7 +51,7 @@ exports.registerPlatinxUser = catchAsync(async (req, res, next) => {
         message:
           "User already registered for both spot and futures trading",
         data: {
-          // spotAccount,
+          spotAccount,
           futuresAccount,
         },
       });
@@ -150,15 +60,15 @@ exports.registerPlatinxUser = catchAsync(async (req, res, next) => {
     // =========================================================
     // 🔹 CREATE SPOT ACCOUNT IF NOT EXISTS
     // =========================================================
-    // if (!spotAccount) {
-    //   const newSpotAccount = new SubAccount({
-    //     userId: trimmedUserId,
-    //   });
+    if (!spotAccount) {
+      const newSpotAccount = new CoinSwitchSpotAccount({
+        user: trimmedUserId,
+      });
 
-    //   await newSpotAccount.save({ validateBeforeSave: false });
+      await newSpotAccount.save({ validateBeforeSave: false });
 
-    //   spotAccount = newSpotAccount;
-    // }
+      spotAccount = newSpotAccount;
+    }
 
     // =========================================================
     // 🔹 CREATE FUTURES ACCOUNT ON PI42 IF NOT EXISTS
@@ -237,7 +147,7 @@ exports.registerPlatinxUser = catchAsync(async (req, res, next) => {
       message:
         "User registered successfully for spot and futures trading",
       data: {
-        // spotAccount,
+        spotAccount,
         futuresAccount,
       },
     });
@@ -408,7 +318,6 @@ exports.getUserMeta = catchAsync(async (req, res, next) => {
     data: response,
   });
 });
-
 
 
 exports.getAccountByUser = catchAsync(async (req, res, next) => {

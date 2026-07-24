@@ -1,8 +1,11 @@
 const axios = require('axios');
 const catchAsync = require('../../../utils/catchAsync');
 const AppError = require('../../../utils/AppError');
+const CoinswitchOrder = require('../../../models/coinswitchModels/coinswitchOrder');
+const CoinswitchPortfolio = require('../../../models/coinswitchModels/coinswitchPortfolio');
+const CoinswitchWallet = require('../../../models/coinswitchModels/coinswitchWallet');
 const { getAuthHeaders } = require('../../../utils/signatureHelper');
-const { buildUrlAndParams } = require('../../../utils/urlAndParamsHelper'); 
+const { buildUrlAndParams } = require('../../../utils/urlAndParamsHelper');
 
 
 const ENDPOINTS = {
@@ -23,9 +26,11 @@ const handleApiResponse = (res, message, data) => {
 exports.createSpotOrder = catchAsync(async (req, res, next) => {
   const payload = req.body;
 
+  const { id: coinswitchAccountId } = req.coinswitchAccount;
+
   // Required validation
-  if (!payload.side || !payload.symbol || !payload.type || !payload.price || !payload.quantity || !payload.exchange) {
-    return next(new AppError('Missing required fields: side, symbol, type, price, quantity, exchange', 400));
+  if (!payload.side || !payload.symbol || !payload.type || !payload.price || !payload.quantity) {
+    return next(new AppError('Missing required fields: side, symbol, type, price, quantity', 400));
   }
 
   if (payload.type.toLowerCase() !== 'limit') {
@@ -34,19 +39,15 @@ exports.createSpotOrder = catchAsync(async (req, res, next) => {
 
   // Normalize (doc says case insensitive, but better to standardize)
   payload.side = payload.side.toLowerCase();
-  payload.type = payload.type.toLowerCase();
+  payload.type = "limit"; // payload.type.toLowerCase()
   payload.symbol = payload.symbol.toUpperCase(); // e.g. BTC/INR
-  payload.exchange = payload.exchange.toLowerCase();
+  payload.exchange = "coinswitchx"; // payload.exchange.toLowerCase()
 
   // Allowed values check
   const validSides = ['buy', 'sell'];
-  const validExchanges = ['coinswitchx', 'wazirx', 'c2c1', 'c2c2'];
 
   if (!validSides.includes(payload.side)) {
     return next(new AppError('Invalid side: must be "buy" or "sell"', 400));
-  }
-  if (!validExchanges.includes(payload.exchange)) {
-    return next(new AppError('Invalid exchange: must be one of coinswitchx, wazirx, c2c1, c2c2', 400));
   }
 
   // Price & quantity must be numbers
@@ -57,6 +58,41 @@ exports.createSpotOrder = catchAsync(async (req, res, next) => {
     return next(new AppError('Price and quantity must be valid numbers', 400));
   }
 
+  // ==================== VALIDATIONS ====================
+
+  if (payload.side === 'buy') {
+    // Buy side - Check Wallet balance (Amount based)
+    const requiredAmount = payload.price * payload.quantity;
+    const fee = requiredAmount * 0.004; // 0.4%
+    const totalRequired = requiredAmount + fee;
+
+    const wallet = await CoinswitchWallet.findOne({
+      coinswitchAccount: coinswitchAccountId
+    });
+
+    if (!wallet || Number(wallet.freeBalance || 0) < totalRequired) {
+      return next(new AppError(
+        `Insufficient balance. Required: ₹${totalRequired.toFixed(2)} (incl. 0.4% fee)`,
+        400
+      ));
+    }
+  }
+  else if (payload.side === 'sell') {
+    // Sell side - Check Portfolio quantity
+    const portfolio = await CoinswitchPortfolio.findOne({
+      coinswitchAccount: coinswitchAccountId,
+      symbol: payload.symbol
+    });
+
+    if (!portfolio || Number(portfolio.totalQuantity || 0) < payload.quantity) {
+      return next(new AppError(
+        `Insufficient ${payload.symbol} balance. You have ${Number(portfolio?.totalQuantity || 0)} available`,
+        400
+      ));
+    }
+  }
+
+  // ==================== PLACE ORDER ====================
   const method = 'POST';
   const path = ENDPOINTS.ORDER;
   const queryObj = {}; // No query params for this endpoint
@@ -65,19 +101,31 @@ exports.createSpotOrder = catchAsync(async (req, res, next) => {
   // Generate signature (your function handles body canonicalization for POST)
   const headers = getAuthHeaders(method, path, queryObj, payload);
 
-  console.log('Placing spot order with payload:', payload);
-  console.log('Request URL:', fullUrl);
-  console.log('Headers (without secret):', {
-    ...headers,
-    'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE'].slice(0, 10) + '...', // mask for logs
-  });
+  // console.log('Placing spot order with payload:', payload);
+  // console.log('Request URL:', fullUrl);
+  // console.log('Headers (without secret):', {
+  //   ...headers,
+  //   'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE'].slice(0, 10) + '...', // mask for logs
+  // });
 
   try {
+    console.log("=========before===============")
+    console.log("=========payload===============", payload)
     const response = await axios({
       method,
       url: fullUrl,
       headers,
       data: payload,
+    });
+    console.log("=========after===============")
+
+    const order = new CoinswitchOrder({
+      orderId: response.data.data.order_id,
+      coinswitchAccount: coinswitchAccountId,
+    });
+
+    await order.save({
+      validateBeforeSave: false,
     });
 
     handleApiResponse(res, 'Spot order placed successfully', response.data);
@@ -102,10 +150,13 @@ exports.createSpotOrder = catchAsync(async (req, res, next) => {
       return next(new AppError(`CoinSwitch error: ${data.message || 'Unknown error'}`, status));
     }
 
+    console.error('Error placing spot order:', error.message, error.stack);
+
     // Network/timeout error
     return next(new AppError('Failed to connect to CoinSwitch API', 503));
   }
 });
+
 
 
 exports.cancelSpotOrder = catchAsync(async (req, res, next) => {
@@ -119,7 +170,7 @@ exports.cancelSpotOrder = catchAsync(async (req, res, next) => {
   const method = 'DELETE';
   const path = ENDPOINTS.ORDER;
   const queryObj = {}; // No query parameters
-  const payload = { order_id : orderId }; // body
+  const payload = { order_id: orderId }; // body
 
   const { fullUrl } = buildUrlAndParams(path, queryObj);
 
@@ -127,7 +178,7 @@ exports.cancelSpotOrder = catchAsync(async (req, res, next) => {
   // Note: For this endpoint → body is NOT included in signature (same as place order)
   const headers = getAuthHeaders(method, path, queryObj, payload);
 
-  console.log('Cancelling spot order:', { order_id : orderId });
+  console.log('Cancelling spot order:', { order_id: orderId });
   console.log('Request URL:', fullUrl);
   console.log('Headers (masked):', {
     ...headers,
@@ -172,70 +223,106 @@ exports.cancelSpotOrder = catchAsync(async (req, res, next) => {
 });
 
 
-exports.getSpotOrder = catchAsync(async (req, res, next) => {
-  const { order_id } = req.query; // ← most common: query string
+// exports.getSpotOrder = catchAsync(async (req, res, next) => {
+//   const { order_id } = req.query; // ← most common: query string
 
-  // You can also support body if you prefer (some clients send via POST body)
-  // const { order_id } = req.body || req.query;
+//   // You can also support body if you prefer (some clients send via POST body)
+//   // const { order_id } = req.body || req.query;
 
-  // Validation
-  if (!order_id || typeof order_id !== 'string' || order_id.trim() === '') {
-    return next(new AppError('order_id is required and must be a non-empty string', 400));
+//   // Validation
+//   if (!order_id || typeof order_id !== 'string' || order_id.trim() === '') {
+//     return next(new AppError('order_id is required and must be a non-empty string', 400));
+//   }
+
+//   const method = 'GET';
+//   const path = ENDPOINTS.ORDER;
+//   const queryObj = { order_id };      // goes into ?order_id=xxx
+//   const payload = null;               // no body for GET
+
+//   const { fullUrl } = buildUrlAndParams(path, queryObj);
+
+//   // Generate signature
+//   // For GET → no body is appended (your existing getAuthHeaders already handles this correctly)
+//   const headers = getAuthHeaders(method, path, queryObj, payload);
+
+//   console.log('Fetching spot order:', { order_id });
+//   console.log('Full URL:', fullUrl);
+//   console.log('Headers (masked):', {
+//     ...headers,
+//     'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE']?.slice(0, 10) + '...' || 'missing',
+//   });
+
+//   try {
+//     const response = await axios({
+//       method,
+//       url: fullUrl,
+//       headers,
+//       // no data/body for GET
+//     });
+
+//     handleApiResponse(res, 'Spot order details retrieved successfully', response.data);
+//   } catch (error) {
+//     if (error.response) {
+//       const { status, data } = error.response;
+
+//       if (status === 404) {
+//         return next(new AppError('Order not found', 404));
+//       }
+//       if (status === 400) {
+//         return next(new AppError(data.message || 'Bad request (invalid order_id?)', 400));
+//       }
+//       if (status === 401) {
+//         return next(new AppError('Invalid API credentials or unauthorized', 401));
+//       }
+//       if (status === 422) {
+//         return next(new AppError(data.message || 'Validation error', 422));
+//       }
+//       if (status === 500) {
+//         return next(new AppError('CoinSwitch internal server error – try again later', 500));
+//       }
+
+//       return next(new AppError(`CoinSwitch error: ${data.message || 'Unknown error'}`, status));
+//     }
+
+//     // Network / timeout / DNS / etc.
+//     return next(new AppError('Failed to connect to CoinSwitch API', 503));
+//   }
+// });
+
+
+
+exports.getAllSpotOrders = catchAsync(async (req, res, next) => {
+  const { id: coinswitchAccountId } = req.coinswitchAccount;
+  const { limit = 50, page = 1, status } = req.query;
+
+  const query = {
+    coinswitchAccount: coinswitchAccountId,
+    isDeleted: false
+  };
+
+  if (status) {
+    query.status = status.toUpperCase();
+  } else {
+    query.status = { $in: ["OPEN", "RAISED", "PARTIALLY_EXECUTED"] };
   }
 
-  const method = 'GET';
-  const path = ENDPOINTS.ORDER;
-  const queryObj = { order_id };      // goes into ?order_id=xxx
-  const payload = null;               // no body for GET
+  const skip = (Number(page) - 1) * Number(limit);
 
-  const { fullUrl } = buildUrlAndParams(path, queryObj);
+  const orders = await CoinswitchOrder.find(query)
+    .sort({ createdTime: -1 })
+    .skip(skip)
+    .limit(Number(limit));
 
-  // Generate signature
-  // For GET → no body is appended (your existing getAuthHeaders already handles this correctly)
-  const headers = getAuthHeaders(method, path, queryObj, payload);
+  const total = await CoinswitchOrder.countDocuments(query);
 
-  console.log('Fetching spot order:', { order_id });
-  console.log('Full URL:', fullUrl);
-  console.log('Headers (masked):', {
-    ...headers,
-    'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE']?.slice(0, 10) + '...' || 'missing',
+  res.status(200).json({
+    status: true,
+    results: orders.length,
+    total,
+    currentPage: Number(page),
+    totalPages: Math.ceil(total / limit),
+    data: orders
   });
-
-  try {
-    const response = await axios({
-      method,
-      url: fullUrl,
-      headers,
-      // no data/body for GET
-    });
-
-    handleApiResponse(res, 'Spot order details retrieved successfully', response.data);
-  } catch (error) {
-    if (error.response) {
-      const { status, data } = error.response;
-
-      if (status === 404) {
-        return next(new AppError('Order not found', 404));
-      }
-      if (status === 400) {
-        return next(new AppError(data.message || 'Bad request (invalid order_id?)', 400));
-      }
-      if (status === 401) {
-        return next(new AppError('Invalid API credentials or unauthorized', 401));
-      }
-      if (status === 422) {
-        return next(new AppError(data.message || 'Validation error', 422));
-      }
-      if (status === 500) {
-        return next(new AppError('CoinSwitch internal server error – try again later', 500));
-      }
-
-      return next(new AppError(`CoinSwitch error: ${data.message || 'Unknown error'}`, status));
-    }
-
-    // Network / timeout / DNS / etc.
-    return next(new AppError('Failed to connect to CoinSwitch API', 503));
-  }
 });
 
 
@@ -463,132 +550,3 @@ exports.getSpotClosedOrders = catchAsync(async (req, res, next) => {
     return next(new AppError('Failed to connect to CoinSwitch API', 503));
   }
 });
-
-
-// exports.getSpotClosedOrders = catchAsync(async (req, res, next) => {
-//   const {
-//     count,
-//     from_time,
-//     to_time,
-//     side,
-//     symbols,
-//     exchanges,
-//     type,
-//     status,           // e.g. EXECUTED, CANCELLED, EXPIRED, ...
-//     open = 'false',   // must be false for closed orders
-//   } = req.query;
-
-//   // Enforce open=false for closed/historical orders
-//   if (open !== 'false' && open !== false) {
-//     return next(new AppError('For closed/historical orders, open must be false', 400));
-//   }
-
-//   const queryObj = { open: 'false' }; // force open=false
-
-//   // Optional: count (default in API is 500 according to your latest info)
-//   if (count !== undefined) {
-//     const parsedCount = Number(count);
-//     if (!Number.isInteger(parsedCount) || parsedCount < 1 || parsedCount > 500) {
-//       return next(new AppError('count must be an integer between 1 and 500', 400));
-//     }
-//     queryObj.count = parsedCount;
-//   }
-
-//   // Time range filters
-//   if (from_time !== undefined) {
-//     const parsedFrom = Number(from_time);
-//     if (isNaN(parsedFrom)) {
-//       return next(new AppError('from_time must be a valid millisecond timestamp', 400));
-//     }
-//     queryObj.from_time = parsedFrom;
-//   }
-
-//   if (to_time !== undefined) {
-//     const parsedTo = Number(to_time);
-//     if (isNaN(parsedTo)) {
-//       return next(new AppError('to_time must be a valid millisecond timestamp', 400));
-//     }
-//     queryObj.to_time = parsedTo;
-//   }
-
-//   // Side filter
-//   if (side) {
-//     const normalizedSide = side.toLowerCase();
-//     if (!['buy', 'sell'].includes(normalizedSide)) {
-//       return next(new AppError('side must be "buy" or "sell" (case insensitive)', 400));
-//     }
-//     queryObj.side = normalizedSide;
-//   }
-
-//   // Symbols (comma-separated ok)
-//   if (symbols) {
-//     queryObj.symbols = symbols;
-//   }
-
-//   // Exchanges (comma-separated ok)
-//   if (exchanges) {
-//     queryObj.exchanges = exchanges.toLowerCase();
-//   }
-
-//   // Type (currently only limit supported)
-//   if (type) {
-//     const normalizedType = type.toLowerCase();
-//     if (normalizedType !== 'limit') {
-//       return next(new AppError('Only "limit" type is currently supported', 400));
-//     }
-//     queryObj.type = normalizedType;
-//   }
-
-//   // Status filter – common values: EXECUTED, CANCELLED, EXPIRED, DISCARDED, ...
-//   if (status) {
-//     // You can pass single value or comma-separated if API supports it
-//     // API might also support: in:EXECUTED,CANCELLED (check official docs)
-//     queryObj.status = status;
-//   }
-
-//   const method = 'GET';
-//   const path = ENDPOINTS.ORDERS_LIST;
-//   const payload = null; // no body
-
-//   const { fullUrl } = buildUrlAndParams(path, queryObj);
-
-//   const headers = getAuthHeaders(method, path, queryObj, payload);
-
-//   console.log('Fetching closed orders with query:', queryObj);
-//   console.log('Full URL:', fullUrl);
-//   console.log('Headers (masked):', {
-//     ...headers,
-//     'X-AUTH-SIGNATURE': headers['X-AUTH-SIGNATURE']?.slice(0, 10) + '...' || 'missing',
-//   });
-
-//   try {
-//     const response = await axios({
-//       method,
-//       url: fullUrl,
-//       headers,
-//     });
-
-//     handleApiResponse(res, 'Closed orders retrieved successfully', response.data);
-//   } catch (error) {
-//     if (error.response) {
-//       const { status: httpStatus, data } = error.response;
-
-//       if (httpStatus === 400) {
-//         return next(new AppError(data.message || 'Bad request – check parameters', 400));
-//       }
-//       if (httpStatus === 401) {
-//         return next(new AppError('Unauthorized – invalid API credentials', 401));
-//       }
-//       if (httpStatus === 422) {
-//         return next(new AppError(data.message || 'Validation error in query parameters', 422));
-//       }
-//       if (httpStatus === 500) {
-//         return next(new AppError('CoinSwitch internal server error – try again later', 500));
-//       }
-
-//       return next(new AppError(`CoinSwitch API error: ${data.message || 'Unknown'}`, httpStatus));
-//     }
-
-//     return next(new AppError('Failed to reach CoinSwitch API', 503));
-//   }
-// });

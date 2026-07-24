@@ -1,6 +1,7 @@
 const axios = require('axios');
 const catchAsync = require('../../../utils/catchAsync');
 const AppError = require('../../../utils/AppError');
+const CoinswitchTrade = require("../../../models/coinswitchModels/coinswitchTrade");
 const { getAuthHeaders } = require('../../../utils/signatureHelper');
 const { buildUrlAndParams } = require('../../../utils/urlAndParamsHelper');
 
@@ -16,6 +17,54 @@ const handleApiResponse = (res, message, data) => {
     data,
   });
 };
+
+
+exports.getUserTrades = catchAsync(async (req, res, next) => {
+  const { id: coinswitchAccountId } = req.coinswitchAccount;
+
+  const { 
+    side, 
+    orderId, 
+    symbol,
+    limit = 50, 
+    page = 1 
+  } = req.query;
+
+  const query = { 
+    coinswitchAccount: coinswitchAccountId,
+    isDeleted: false 
+  };
+
+  // Filters
+  if (side) {
+    query.side = side.toUpperCase();
+  }
+
+  if (orderId) {
+    query.orderId = orderId;
+  }
+
+  if (symbol) {
+    query.symbol = symbol.toUpperCase();
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const trades = await CoinswitchTrade.find(query)
+    .sort({ tradeTime: -1, createdAt: -1 })   // Latest trades first
+    .skip(skip)
+    .limit(Number(limit));
+
+  const total = await CoinswitchTrade.countDocuments(query);
+
+  res.status(200).json({
+    status: true,
+    results: trades.length,
+    currentPage: Number(page),
+    totalPages: Math.ceil(total / limit),
+    data: trades
+  });
+});
 
 
 exports.getSpotTrades = catchAsync(async (req, res, next) => {

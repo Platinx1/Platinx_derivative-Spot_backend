@@ -19,7 +19,7 @@ const handleApiResponse = (res, message, data) => {
 
 
 exports.getSpotTradingFee = catchAsync(async (req, res, next) => {
-  const { exchange } = req.query;
+  const { exchange = "coinswitchx" } = req.query;
 
   // Required validation
   if (!exchange || typeof exchange !== 'string' || exchange.trim() === '') {

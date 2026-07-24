@@ -88,9 +88,9 @@ function getAuthHeaders(
     throw new Error("API_KEY or API_SECRET not set in env");
   }
 
-  console.log("Generating auth headers for:", method, path);
-  console.log("Query params:", queryParams);
-  console.log("Body:", body);
+  // console.log("Generating auth headers for:", method, path);
+  // console.log("Query params:", queryParams);
+  // console.log("Body:", body);
 
   // const epoch = Date.now().toString();
   const epoch =

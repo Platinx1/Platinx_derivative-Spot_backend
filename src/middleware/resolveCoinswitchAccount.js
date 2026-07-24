@@ -1,58 +1,36 @@
 // middlewares/resolveCoinswitchAccount.js
 
-const SubAccount = require("../models/subAccountSchema");
+const CoinSwitchSpotAccount = require("../models/coinswitchModels/coinSwitchSpotAccount");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
 
 const resolveCoinswitchAccount = catchAsync(async (req, res, next) => {
-  // Support both query params and body
-  const userId = req.query.userId || req.body.userId;
 
-  if (!userId) {
-    return next(new AppError("userId is required", 400));
+  const user = req.query.user || req.body.user;
+
+  if (!user) {
+    return next(new AppError("user is required", 400));
   }
 
-  // Include apiKey & apiSecret explicitly because select:false
-  const subAccount = await SubAccount.findOne({
-    userId: String(userId).trim(),
-  })
-    .select("+apiKey +apiSecret")
-    .lean();
+  const account = await CoinSwitchSpotAccount.findOne({
+    user: String(user),
+    isActive: true,
+  }).lean();
 
-  if (!subAccount) {
-    return next(
-      new AppError("CoinSwitch account not found for this user", 404)
-    );
+  if (!account) {
+    return next(new AppError("CoinSwitch account not found for this user", 404));
   }
 
-  if (
-    !subAccount.exchangeSubAccountId ||
-    !subAccount.apiKey ||
-    !subAccount.apiSecret
-  ) {
-    return next(
-      new AppError(
-        "CoinSwitch account is not properly configured with exchange credentials.",
-        500
-      )
-    );
-  }
-
-  // Attach resolved account to request
+  // Attach account to request
   req.coinswitchAccount = {
-    id: subAccount._id,
-    userId: subAccount.userId,
-    name: subAccount.name,
-    type: subAccount.type,
-    exchange: subAccount.exchange,
-
-    exchangeSubAccountId: String(subAccount.exchangeSubAccountId),
-
-    apiKey: subAccount.apiKey,
-    apiSecret: subAccount.apiSecret,
-
-    status: subAccount.status,
-    isActive: subAccount.isActive,
+    id: account._id,
+    user: account.user,
+    name: account.name,
+    type: account.type,
+    exchange: account.exchange,
+    status: account.status,
+    isActive: account.isActive,
+    isApiTradingEnabled: account.isApiTradingEnabled,
   };
 
   next();

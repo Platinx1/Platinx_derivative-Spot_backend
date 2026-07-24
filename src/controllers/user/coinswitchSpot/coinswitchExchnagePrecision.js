@@ -12,18 +12,14 @@ const ENDPOINTS = {
 exports.getExchangePrecision = catchAsync(async (req, res, next) => {
   const { exchange = "coinswitchx", symbol } = req.body;
 
-  const { apiKey, apiSecret } = req.coinswitchAccount ;
+  // const { apiKey, apiSecret } = req.coinswitchAccount ;
 
   // Validate exchange (required)
-  const validExchanges = ["coinswitchx", "wazirx", "c2c1", "c2c2"];
+  const validExchanges = ["coinswitchx"];
   const exchangeLower = exchange.toLowerCase();
+  
   if (!validExchanges.includes(exchangeLower)) {
-    return next(
-      new AppError(
-        `Invalid exchange. Allowed values: ${validExchanges.join(", ")} (case insensitive)`,
-        400
-      )
-    );
+    return next(new AppError(`Invalid exchange value`, 400));
   }
 
   // symbol is optional — but if provided, it's usually in format "BTC/INR"
@@ -38,7 +34,7 @@ exports.getExchangePrecision = catchAsync(async (req, res, next) => {
   // For signing: query is empty, payload goes in body
   const { fullUrl, fullPath } = buildUrlAndParams(path, {}, bodyPayload);
 
-  const headers = getAuthHeaders(method, fullPath, {}, null, apiKey, apiSecret); // no query params
+  const headers = getAuthHeaders(method, fullPath, {}, null); // no query params
 
   console.log("headers===========================================:", headers);
 

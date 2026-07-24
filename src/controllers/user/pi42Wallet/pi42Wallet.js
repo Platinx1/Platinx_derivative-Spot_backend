@@ -102,13 +102,8 @@ exports.depositINR = catchAsync(async (req, res, next) => {
   // ✅ Everything comes from middleware now
   const { id, userId, accountId } = req.pi42Account;
 
-  if (!amount) {
-    return next(new AppError("amount is required", 400));
-  }
-
-  if (Number(amount) <= 0) {
-    return next(new AppError("Amount must be greater than 0", 400));
-  }
+  if (!amount) return next(new AppError("amount is required", 400));
+  if (Number(amount) <= 0) return next(new AppError("Amount must be greater than 0", 400));
 
   /**
    * =========================================
@@ -117,8 +112,7 @@ exports.depositINR = catchAsync(async (req, res, next) => {
    */
 
   try {
-    const futuresUrl =
-      "https://platinx.exchange/api/futureDepositFromMainWallet";
+    const futuresUrl = "https://platinx.exchange/api/futureDepositFromMainWallet";
 
     const futuresHeaders = {
       "Content-Type": "application/json",
@@ -157,15 +151,11 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     }
 
   } catch (futureErr) {
-    console.error(
-      "❌ Futures Wallet API Error:",
-      futureErr?.response?.data || futureErr.message
-    );
+    console.error("❌ Futures Wallet API Error:", futureErr?.response?.data || futureErr.message);
 
     return next(
       new AppError(
-        futureErr?.response?.data?.msg ||
-          "Failed to process futures wallet deduction",
+        futureErr?.response?.data?.msg || "Failed to process futures wallet deduction",
         futureErr?.response?.status || 500
       )
     );
@@ -203,15 +193,11 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     const apiRes = await axios.post(url, body, { headers });
     response = apiRes.data;
   } catch (err) {
-    console.error(
-      "❌ PI42 Deposit Error:",
-      err?.response?.data || err.message
-    );
+    console.error("❌ PI42 Deposit Error:", err?.response?.data || err.message);
 
     return next(
       new AppError(
-        err?.response?.data?.message || "PI42 deposit failed",
-        err?.response?.status || 500
+        err?.response?.data?.message || "PI42 deposit failed", err?.response?.status || 500
       )
     );
   }
@@ -251,18 +237,6 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     },
   });
 });
-
-
-// exports.depositINR = catchAsync(async (req, res, next) => {
-//   const { amount } = req.body;
-
-//   console.log("::::::::::::::::::::::::::::::::::::::::::::::::::::::::;:");
-
-//   res.status(200).json({
-//     status: true,
-//     message: "INR deposited successfully",
-//   });
-// });
 
 
 // exports.withdrawINR = catchAsync(async (req, res, next) => {

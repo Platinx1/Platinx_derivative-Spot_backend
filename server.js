@@ -4,14 +4,20 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
+const ApiTradingClient = require("./apiTradingClient");
+
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const http = require("http");
 const app = require("./src/app");
 const { initializeWebSocket } = require("./src/services/webSocketService");
 const { connectPi42Socket } = require("./src/services/pi42SocketService");
+require("./src/services/coinswitchSocketService");
 
 dotenv.config({ path: "config.env" });
+
+const apiKey = process.env.API_KEY;
+const secretKey = process.env.API_SECRET;
 
 // MongoDB Connection
 mongoose
@@ -28,7 +34,7 @@ const server = http.createServer(app);
 
 // Initialize WebSocket server
 initializeWebSocket(server);
-connectPi42Socket();
+connectPi42Socket(); // Connect Pi42 Socket
 
 // Start server
 server.listen(Port, () => {
@@ -89,5 +95,26 @@ process.on("SIGINT", () => {
     });
   });
 });
+
+const client = new ApiTradingClient(secretKey, apiKey);
+
+// (async () => {
+
+//     const payload = {
+//         side: "sell",
+//         symbol: "usds/usdt",
+//         type: "limit",
+//         price: 0.998,
+//         quantity: 16,
+//         exchange: "C2C1"
+//     };
+
+//     // console.log(">>>>>>>>>>>>>>>>>...............", apiKey, secretKey);
+
+//     const result = await client.createOrder(payload);
+
+//     console.log("====>>>>>>>>======", result);
+
+// })();
 
 
