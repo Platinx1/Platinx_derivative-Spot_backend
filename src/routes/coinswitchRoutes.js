@@ -30,6 +30,7 @@ const {
   getFuturesWalletBalance,
 } = require("../controllers/user/coinswitchFuture/coinswitchWalletBalance");
 const {
+  getUserPortfolioWithBalance,
   getUserPortfolio,
 } = require("../controllers/user/coinswitchSpot/coinswitchSpotPortfolio");
 
@@ -88,7 +89,7 @@ router.get("/spot/tradeInfo", getTradeInfo);
 // router.get("/spot/syncTradeInfo", syncTradeInfo); // getSupportedCoins, syncTradeInfo
 
 //portfolio
-// router.get("/spot/portfolio", getUserPortfolio);
+router.get("/spot/balance/portfolio", getUserPortfolioWithBalance);
 router.get("/spot/portfolio", resolveCoinswitchAccount, getUserPortfolio);
 
 //orders
@@ -113,8 +114,6 @@ router.get('/spot/deposit-withdraw-history', resolveCoinswitchAccount, getTransa
 
 // wallet balance
 router.get('/spot/wallet-balance', resolveCoinswitchAccount, getWalletBalance);
-
-
 
 
 // Future endpoints (placeholders)

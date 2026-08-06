@@ -107,8 +107,7 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   /**
    * STEP 1: Deduct from Futures Wallet
    */
-  const futuresUrl =
-    "https://platinx.exchange/api/futureDepositFromMainWallet";
+  const futuresUrl = "https://platinx.exchange/api/futureDepositFromMainWallet";
 
   const futuresHeaders = {
     "Content-Type": "application/json",
@@ -163,7 +162,6 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
 
     wallet = await CoinswitchWallet.findOne({
       coinswitchAccount: coinswitchAccountId,
-      asset: "INR",
     }).session(session);
 
     if (!wallet) {
@@ -171,7 +169,6 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
         [
           {
             coinswitchAccount: coinswitchAccountId,
-            asset: "INR",
             totalBalance: depositAmount,
             freeBalance: depositAmount,
             lockedBalance: 0,
@@ -385,13 +382,30 @@ exports.getTransactionHistory = catchAsync(async (req, res, next) => {
 
 
 exports.getWalletBalance = catchAsync(async (req, res, next) => {
-  const { id: coinswitchAccountId } = req.coinswitchAccount; // middleware se aa raha hai
+  const { id: coinswitchAccountId } = req.coinswitchAccount;
 
-  const wallet = await CoinswitchWallet.findOne({ coinswitchAccount: coinswitchAccountId });
+  const wallet = await CoinswitchWallet.findOne({
+    coinswitchAccount: coinswitchAccountId,
+  });
+
+  if (!wallet) {
+    return res.status(200).json({
+      status: true,
+      message: "Wallet balance fetched successfully",
+      data: null,
+    });
+  }
+
+  const data = wallet.toObject();
+
+  data.totalBalance = Number(data.totalBalance).toFixed(2);
+  data.freeBalance = Number(data.freeBalance).toFixed(2);
+  data.lockedBalance = Number(data.lockedBalance).toFixed(2);
+  data.availableForSpot = Number(data.availableForSpot).toFixed(2);
 
   res.status(200).json({
     status: true,
     message: "Wallet balance fetched successfully",
-    data: wallet
+    data,
   });
 });

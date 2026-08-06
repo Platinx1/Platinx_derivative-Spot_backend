@@ -109,15 +109,12 @@ exports.createSpotOrder = catchAsync(async (req, res, next) => {
   // });
 
   try {
-    console.log("=========before===============")
-    console.log("=========payload===============", payload)
     const response = await axios({
       method,
       url: fullUrl,
       headers,
       data: payload,
     });
-    console.log("=========after===============")
 
     const order = new CoinswitchOrder({
       orderId: response.data.data.order_id,
@@ -223,6 +220,7 @@ exports.cancelSpotOrder = catchAsync(async (req, res, next) => {
 });
 
 
+
 // exports.getSpotOrder = catchAsync(async (req, res, next) => {
 //   const { order_id } = req.query; // ← most common: query string
 
@@ -297,6 +295,7 @@ exports.getAllSpotOrders = catchAsync(async (req, res, next) => {
 
   const query = {
     coinswitchAccount: coinswitchAccountId,
+    price: { $gt: 0 },
     isDeleted: false
   };
 

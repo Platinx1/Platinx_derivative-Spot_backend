@@ -75,6 +75,55 @@ server.listen(Port, () => {
 
 
 
+// const coinswitchPortfolioCollection =
+//   mongoose.connection.collection("coinswitchportfolios");
+
+// coinswitchPortfolioCollection
+//   .dropIndex("pair_1")
+//   .then(() => {
+//     console.log("✅ Dropped index: pair_1");
+//   })
+//   .catch(() => {
+//     console.log("⚠️ pair_1 index not found or already dropped");
+//   });
+
+// coinswitchPortfolioCollection
+//   .dropIndex("coinswitchAccount_1_pair_1")
+//   .then(() => {
+//     console.log("✅ Dropped index: coinswitchAccount_1_pair_1");
+//   })
+//   .catch(() => {
+//     console.log(
+//       "⚠️ coinswitchAccount_1_pair_1 index not found or already dropped"
+//     );
+//   });
+
+// coinswitchPortfolioCollection
+//   .dropIndex("coinswitchAccount_1_asset_1")
+//   .then(() => {
+//     console.log("✅ Dropped index: coinswitchAccount_1_asset_1");
+//   })
+//   .catch(() => {
+//     console.log(
+//       "⚠️ coinswitchAccount_1_asset_1 index not found or already dropped"
+//     );
+//   });
+
+
+// const coinswitchWalletCollection =
+//   mongoose.connection.collection("coinswitchwallets");
+
+// coinswitchWalletCollection
+//   .dropIndex("coinswitchAccount_1_asset_1")
+//   .then(() => {
+//     console.log("✅ Dropped index: coinswitchAccount_1_asset_1");
+//   })
+//   .catch(() => {
+//     console.log(
+//       "⚠️ coinswitchAccount_1_asset_1 index not found or already dropped"
+//     );
+//   });
+
 
 process.on("unhandledRejection", (err) => {
   console.log("❌ UNHANDLED REJECTION:", err.name, err.message);

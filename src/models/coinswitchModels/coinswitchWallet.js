@@ -32,7 +32,6 @@ const coinswitchWalletSchema = new Schema(
 );
 
 // Indexes
-coinswitchWalletSchema.index({ coinswitchAccount: 1, asset: 1 }, { unique: true });
 coinswitchWalletSchema.index({ coinswitchAccount: 1 });
 
 const CoinswitchWallet = mongoose.model("CoinswitchWallet", coinswitchWalletSchema);

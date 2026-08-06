@@ -6,11 +6,9 @@ const buildHeaders = require("../../../utils/buildHeaders");
 const Pi42Trade = require("../../../models/pi42Models/pi42Trade");
 const { getPi42UserByPlatinxUserId } = require("../../../services/pi42UserService");
 
+
 // exports.getPositions = catchAsync(async (req, res, next) => {
 //   const {
-//     userId,
-//     accountId,
-//     user,
 //     positionStatus, // OPEN | CLOSED | LIQUIDATED
 //     startTimestamp,
 //     endTimestamp,
@@ -18,7 +16,7 @@ const { getPi42UserByPlatinxUserId } = require("../../../services/pi42UserServic
 //     pageSize = 100,
 //   } = req.query;
 
-//   // if(!user) return next(new AppError("user query param is required", 400));
+//   const { userId, accountId } = req.pi42Account;
 
 //   if (!positionStatus) {
 //     return next(
@@ -26,22 +24,12 @@ const { getPi42UserByPlatinxUserId } = require("../../../services/pi42UserServic
 //     );
 //   }
 
-//   // const pi42User = await getPi42UserByPlatinxUserId(user);
-//   // if (!pi42User) {
-//   //   return next(new AppError("PI42 user not found", 404));
-//   // }
-
-//   // const userId = pi42User.pi42UserId.toString();
-//   // const accountId = pi42User.pi42AccountId.toString();
-
 //   // 🔥 validations
 //   if (!userId || !accountId) {
 //     return next(
 //       new AppError("userId and accountId are required", 400)
 //     );
 //   }
-
-
 
 //   const allowedStatus = ["OPEN", "CLOSED", "LIQUIDATED"];
 //   if (!allowedStatus.includes(positionStatus)) {
@@ -105,106 +93,43 @@ const { getPi42UserByPlatinxUserId } = require("../../../services/pi42UserServic
 //     return next(new AppError("No positions found", 500));
 //   }
 
+//   // 🔥 IMPORTANT: Sirf CLOSED positions ke liye sellPrice add karo
+//   let finalData = response;
+
+//   if (positionStatus === "CLOSED" && Array.isArray(finalData) && finalData.length > 0) {
+
+//     // Get all positionIds from closed positions
+//     const positionIds = finalData.map(pos => pos.positionId);
+
+//     // Fetch corresponding SELL trades for these positions
+//     const trades = await Pi42Trade.find({
+//       positionId: { $in: positionIds },
+//       side: "SELL"                    // Closing LONG positions
+//     }).select("positionId price");
+
+//     // Create a map for quick lookup
+//     const tradeMap = new Map();
+//     trades.forEach(trade => {
+//       tradeMap.set(trade.positionId, trade.price);
+//     });
+
+//     // Add sellPrice to each closed position
+//     finalData = finalData.map(position => {
+//       const sellPrice = tradeMap.get(position.positionId);
+      
+//       return {
+//         ...position,
+//         sellPrice: sellPrice ? Number(sellPrice) : null,   // null if not found
+//       };
+//     });
+//   }
+
 //   res.status(200).json({
 //     status: true,
 //     message: `${positionStatus} positions fetched successfully`,
-//     data: response,
+//     data: finalData,
 //   });
 // });
-
-
-exports.getPositions11 = catchAsync(async (req, res, next) => {
-  const {
-    positionStatus, // OPEN | CLOSED | LIQUIDATED
-    startTimestamp,
-    endTimestamp,
-    sortOrder = "desc",
-    pageSize = 100,
-  } = req.query;
-
-  const { userId, accountId } = req.pi42Account;
-
-  if (!positionStatus) {
-    return next(
-      new AppError("positionStatus is required (OPEN, CLOSED, LIQUIDATED)", 400)
-    );
-  }
-
-  // 🔥 validations
-  if (!userId || !accountId) {
-    return next(
-      new AppError("userId and accountId are required", 400)
-    );
-  }
-
-  const allowedStatus = ["OPEN", "CLOSED", "LIQUIDATED"];
-  if (!allowedStatus.includes(positionStatus)) {
-    return next(
-      new AppError("Invalid positionStatus", 400)
-    );
-  }
-
-  if (Number(pageSize) > 100) {
-    return next(new AppError("pageSize max is 100", 400));
-  }
-
-  if (!["asc", "desc"].includes(sortOrder)) {
-    return next(new AppError("Invalid sortOrder", 400));
-  }
-
-  const endpoint = `/v1/positions/${positionStatus}`;
-  const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
-
-  // 🔹 headers
-  const headers = buildHeaders(
-    process.env.PARTNER_NAME,
-    process.env.API_COOKIE,
-    userId,
-    accountId
-  );
-
-  // 🔹 query params
-  const params = {
-    sortOrder,
-    pageSize: Number(pageSize),
-  };
-
-  if (startTimestamp) params.startTimestamp = Number(startTimestamp);
-  if (endTimestamp) params.endTimestamp = Number(endTimestamp);
-
-  let response;
-
-  try {
-    const apiRes = await axios.get(url, {
-      headers,
-      params,
-    });
-
-    response = apiRes.data;
-  } catch (err) {
-    console.error(
-      "❌ PI42 Positions Error:",
-      err?.response?.data || err.message
-    );
-
-    return next(
-      new AppError(
-        err?.response?.data?.details || "Failed to fetch positions",
-        err?.response?.status || 500
-      )
-    );
-  }
-
-  if (!response) {
-    return next(new AppError("No positions found", 500));
-  }
-
-  res.status(200).json({
-    status: true,
-    message: `${positionStatus} positions fetched successfully`,
-    data: response,
-  });
-});
 
 
 exports.getPositions = catchAsync(async (req, res, next) => {
@@ -293,7 +218,7 @@ exports.getPositions = catchAsync(async (req, res, next) => {
     return next(new AppError("No positions found", 500));
   }
 
-  // 🔥 IMPORTANT: Sirf CLOSED positions ke liye sellPrice add karo
+  // 🔥 IMPORTANT: Sirf CLOSED positions ke liye sellPrice add / entryPrice overwrite karo
   let finalData = response;
 
   if (positionStatus === "CLOSED" && Array.isArray(finalData) && finalData.length > 0) {
@@ -301,25 +226,36 @@ exports.getPositions = catchAsync(async (req, res, next) => {
     // Get all positionIds from closed positions
     const positionIds = finalData.map(pos => pos.positionId);
 
-    // Fetch corresponding SELL trades for these positions
+    // 🔥 Single query — BUY aur SELL dono trades ek saath fetch karo
     const trades = await Pi42Trade.find({
       positionId: { $in: positionIds },
-      side: "SELL"                    // Closing LONG positions
-    }).select("positionId price");
+      side: { $in: ["BUY", "SELL"] },
+    }).select("positionId price side");
 
-    // Create a map for quick lookup
-    const tradeMap = new Map();
+    // JS mein hi split karke maps banao
+    const sellPriceMap = new Map();
+    const entryPriceMap = new Map();
+
     trades.forEach(trade => {
-      tradeMap.set(trade.positionId, trade.price);
+      if (trade.side === "SELL") {
+        sellPriceMap.set(trade.positionId, trade.price);   // Closing trade -> sellPrice
+      } else if (trade.side === "BUY") {
+        entryPriceMap.set(trade.positionId, trade.price);  // Opening trade -> entryPrice
+      }
     });
 
-    // Add sellPrice to each closed position
+    // Add sellPrice + overwrite entryPrice on each closed position
     finalData = finalData.map(position => {
-      const sellPrice = tradeMap.get(position.positionId);
-      
+      const sellPrice = sellPriceMap.get(position.positionId);
+      const entryPriceFromTrade = entryPriceMap.get(position.positionId);
+
       return {
         ...position,
-        sellPrice: sellPrice ? Number(sellPrice) : null,   // null if not found
+        // overwrite API's entryPrice with DB's BUY trade price, if found
+        entryPrice: entryPriceFromTrade
+          ? Number(entryPriceFromTrade)
+          : position.entryPrice,
+        sellPrice: sellPrice ? Number(sellPrice) : null, // null if not found
       };
     });
   }

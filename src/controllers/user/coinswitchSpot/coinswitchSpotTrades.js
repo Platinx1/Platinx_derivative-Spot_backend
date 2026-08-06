@@ -23,6 +23,7 @@ exports.getUserTrades = catchAsync(async (req, res, next) => {
   const { id: coinswitchAccountId } = req.coinswitchAccount;
 
   const { 
+    user,
     side, 
     orderId, 
     symbol,
