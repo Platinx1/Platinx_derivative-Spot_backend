@@ -1,0 +1,46 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # Remove if you don't have tests
+      # - name: Run Tests
+      #   run: npm test
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            cd /var/www/platinx/Platinx_derivative-Spot_backend
+
+            git fetch origin
+            git reset --hard origin/prod
+
+            npm ci
+
+            # Uncomment only if your project has a build script
+            # npm run build
+
+            pm2 restart backend
