@@ -8,13 +8,25 @@ const ApiTradingClient = require("./apiTradingClient");
 
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+// Load env before requiring services that read credentials during startup.
+dotenv.config({ path: "config.env" });
+
 const http = require("http");
 const app = require("./src/app");
 const { initializeWebSocket } = require("./src/services/webSocketService");
 const { connectPi42Socket } = require("./src/services/pi42SocketService");
-require("./src/services/coinswitchSocketService");
 
-dotenv.config({ path: "config.env" });
+const instanceName = process.env.INSTANCE_NAME || process.env.NODE_ENV || "unknown";
+const enableCoinswitchOrderSocket =
+  process.env.ENABLE_COINSWITCH_ORDER_SOCKET === "true";
+let connectCoinswitchOrderSocket = null;
+
+if (enableCoinswitchOrderSocket) {
+  ({ connectCoinswitchOrderSocket } = require("./src/services/coinswitchSocketService"));
+  console.log(`CoinSwitch order socket enabled on instance: ${instanceName}`);
+} else {
+  console.log(`CoinSwitch order socket disabled on instance: ${instanceName}`);
+}
 
 const apiKey = process.env.API_KEY;
 const secretKey = process.env.API_SECRET;
@@ -38,6 +50,9 @@ connectPi42Socket(); // Connect Pi42 Socket
 
 // Start server
 server.listen(Port, () => {
+  if (connectCoinswitchOrderSocket) {
+    connectCoinswitchOrderSocket();
+  }
   console.log(`🚀 Server running on port: ${Port}`);
   console.log(`📡 WebSocket available at ws://localhost:${Port}`);
 });
@@ -165,5 +180,3 @@ const client = new ApiTradingClient(secretKey, apiKey);
 //     console.log("====>>>>>>>>======", result);
 
 // })();
-
-

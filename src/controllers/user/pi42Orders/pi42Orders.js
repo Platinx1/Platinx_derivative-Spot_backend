@@ -215,13 +215,13 @@ exports.placeOrderWithLeverage = catchAsync(async (req, res, next) => {
     side, // BUY | SELL
     symbol,
     type, // ("MARKET", "LIMIT" in case of ORDER_FORM)   (MARKET, STOP_MARKET,LIMIT in case of POSITION)
-    price,
+    price,  // limit price for LIMIT or STOP_LIMIT
+    stopPrice, // stop price for STOP_MARKET or STOP_LIMIT
     stopLossPrice,
     takeProfitPrice,
     marginAsset = "INR",
     leverage,
-    positionId,
-    stopPrice
+    positionId
   } = req.body;
 
   const { userId, accountId } = req.pi42Account;

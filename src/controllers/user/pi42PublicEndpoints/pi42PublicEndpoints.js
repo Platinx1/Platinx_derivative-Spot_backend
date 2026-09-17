@@ -6,54 +6,6 @@ const Pi42Pairs = require("../../../models/pi42Models/pi42Pairs");
 
 
 
-// exports.getExchangeInfo = catchAsync(async (req, res, next) => {
-//   const { market = "INR", pair } = req.query;
-
-//   let pairValue
-
-//   if(pair) pairValue = pair.trim().toUpperCase();
-
-//   const endpoint = `/v1/exchange/exchangeInfo`;
-//   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}?market=${encodeURIComponent(market)}`;
-
-//   let response;
-
-//   try {
-//     const apiRes = await axios.get(url); // simple GET request, no headers
-//     response = apiRes.data;
-//   } catch (err) {
-//     console.error(
-//       "❌ PI42 Get Exchange Info Error:",
-//       err?.response?.data || err.message
-//     );
-
-//     return next(
-//       new AppError(
-//         err?.response?.data?.message || "Failed to fetch exchange info",
-//         err?.response?.status || 500
-//       )
-//     );
-//   }
-
-//   if (!response) {
-//     return next(new AppError("Exchange info not found", 404));
-//   }
-
-//   let allData = response;
-
-//   if (pairValue) {
-//     allData = allData.contracts.filter(data => data.name === pairValue);
-//   }
-
-
-//   res.status(200).json({
-//     status: true,
-//     message: `Exchange info fetched successfully for market ${market}`,
-//     data: allData,
-//   });
-// });
-
-
 exports.getExchangeInfo = catchAsync(async (req, res, next) => {
   const { market = "INR", pair } = req.query;
 
@@ -83,69 +35,117 @@ exports.getExchangeInfo = catchAsync(async (req, res, next) => {
     );
   }
 
-  const contracts =
-    response?.data?.contracts ||   // expected shape
-    response?.contracts ||          // fallback if top-level
-    [];
- 
-  if (!contracts.length) {
-    console.error("❌ No contracts found. Full response:", JSON.stringify(response));
-    return next(new AppError("No contracts found to sync", 404));
+  if (!response) {
+    return next(new AppError("Exchange info not found", 404));
   }
- 
-  // Pick only the required fields from each contract
-  // const contractDocs = contracts.map((contract) => ({
-  //   name: contract.name,
-  //   contractName: contract.contractName,
-  //   makerFee: contract.makerFee,
-  //   takerFee: contract.takerFee,
-  //   maxLeverage: contract.maxLeverage,
-  //   liquidationFee: contract.liquidationFee,
-  //   pricePrecision: contract.pricePrecision,
-  //   quantityPrecision: contract.quantityPrecision,
-  //   marginBufferPercentage: contract.marginBufferPercentage,
-  //   depthGrouping: contract.depthGrouping[0],
-  //   iconUrl: contract.iconUrl,
-  // }));
 
-  const contractDocs = contracts.map((contract) => {
+  let allData = response;
 
-  // Find MIN_NOTIONAL filter
-  const minNotionalFilter = contract.filters?.find(
-    (f) => f.filterType === "MIN_NOTIONAL"
-  );
-
-  return {
-    name: contract.name,
-    contractName: contract.contractName,
-    makerFee: contract.makerFee,
-    takerFee: contract.takerFee,
-    maxLeverage: contract.maxLeverage,
-    liquidationFee: contract.liquidationFee,
-    pricePrecision: contract.pricePrecision,
-    quantityPrecision: contract.quantityPrecision,
-    marginBufferPercentage: contract.marginBufferPercentage,
-    depthGrouping: contract.depthGrouping[0],
-    iconUrl: contract.iconUrl,
-
-    // Save notional value
-    notional: minNotionalFilter?.notional || "0",
-  };
-});
- 
-  // insertMany with ordered: false so one duplicate doesn't abort the whole batch
-  const inserted = await Pi42Pairs.insertMany(contractDocs, {
-    ordered: false,   // continues inserting even if some duplicates fail
-    rawResult: true,  // returns insertedCount etc.
-  });
+  if (pairValue) {
+    allData = allData.contracts.filter(data => data.name === pairValue);
+  }
 
 
   res.status(200).json({
     status: true,
     message: `Exchange info fetched successfully for market ${market}`,
-    // data: allData,
+    data: allData,
   });
 });
+
+
+// exports.getExchangeInfo = catchAsync(async (req, res, next) => {
+//   const { market = "INR", pair } = req.query;
+
+//   let pairValue
+
+//   if(pair) pairValue = pair.trim().toUpperCase();
+
+//   const endpoint = `/v1/exchange/exchangeInfo`;
+//   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}?market=${encodeURIComponent(market)}`;
+
+//   let response;
+
+//   try {
+//     const apiRes = await axios.get(url); // simple GET request, no headers
+//     response = apiRes.data;
+//   } catch (err) {
+//     console.error(
+//       "❌ PI42 Get Exchange Info Error:",
+//       err?.response?.data || err.message
+//     );
+
+//     return next(
+//       new AppError(
+//         err?.response?.data?.message || "Failed to fetch exchange info",
+//         err?.response?.status || 500
+//       )
+//     );
+//   }
+
+//   const contracts =
+//     response?.data?.contracts ||   // expected shape
+//     response?.contracts ||          // fallback if top-level
+//     [];
+ 
+//   if (!contracts.length) {
+//     console.error("❌ No contracts found. Full response:", JSON.stringify(response));
+//     return next(new AppError("No contracts found to sync", 404));
+//   }
+ 
+//   // Pick only the required fields from each contract
+//   // const contractDocs = contracts.map((contract) => ({
+//   //   name: contract.name,
+//   //   contractName: contract.contractName,
+//   //   makerFee: contract.makerFee,
+//   //   takerFee: contract.takerFee,
+//   //   maxLeverage: contract.maxLeverage,
+//   //   liquidationFee: contract.liquidationFee,
+//   //   pricePrecision: contract.pricePrecision,
+//   //   quantityPrecision: contract.quantityPrecision,
+//   //   marginBufferPercentage: contract.marginBufferPercentage,
+//   //   depthGrouping: contract.depthGrouping[0],
+//   //   iconUrl: contract.iconUrl,
+//   // }));
+
+//   const contractDocs = contracts.map((contract) => {
+
+//   // Find MIN_NOTIONAL filter
+//   const minNotionalFilter = contract.filters?.find(
+//     (f) => f.filterType === "MIN_NOTIONAL"
+//   );
+
+//   return {
+//     name: contract.name,
+//     contractName: contract.contractName,
+//     makerFee: contract.makerFee,
+//     takerFee: contract.takerFee,
+//     maxLeverage: contract.maxLeverage,
+//     liquidationFee: contract.liquidationFee,
+//     pricePrecision: contract.pricePrecision,
+//     quantityPrecision: contract.quantityPrecision,
+//     marginBufferPercentage: contract.marginBufferPercentage,
+//     depthGrouping: contract.depthGrouping[0],
+//     iconUrl: contract.iconUrl,
+
+//     // Save notional value
+//     notional: minNotionalFilter?.notional || "0",
+//   };
+// });
+ 
+//   // insertMany with ordered: false so one duplicate doesn't abort the whole batch
+//   const inserted = await Pi42Pairs.insertMany(contractDocs, {
+//     ordered: false,   // continues inserting even if some duplicates fail
+//     rawResult: true,  // returns insertedCount etc.
+//   });
+
+
+//   res.status(200).json({
+//     status: true,
+//     message: `Exchange info fetched successfully for market ${market}`,
+//     // data: allData,
+//   });
+// });
 
 
 exports.getKlines = catchAsync(async (req, res, next) => {
@@ -252,6 +252,8 @@ exports.getAggTrade = catchAsync(async (req, res, next) => {
 
   const endpoint = `/v1/market/aggTrade/${pairValue}`;
   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
+
+  console.log("=============================",url);
 
   let response;
 

@@ -52,7 +52,7 @@ const {
   transferFunds,
   closePosition,
 } = require("../controllers/user/coinswitchHFT/coinswitchHFT");
-const { createSpotOrder, cancelSpotOrder, getAllSpotOrders, getSpotOpenOrders, getSpotClosedOrders } = require("../controllers/user/coinswitchSpot/coinswitchPlaceOrder");
+const { createSpotOrder, createMasterSpotOrder, cancelSpotOrder, getAllSpotOrders, getSpotOpenOrders, getSpotClosedOrders } = require("../controllers/user/coinswitchSpot/coinswitchPlaceOrder");
 const { getUserTrades, getSpotTrades } = require("../controllers/user/coinswitchSpot/coinswitchSpotTrades");
 const { getSpotTradingFee } = require("../controllers/user/coinswitchSpot/coinswitchTradingFee");
 const {
@@ -70,50 +70,50 @@ const router = express.Router();
 router.get("/ping", ping);
 
 // 📊spot Ticker endpoints
-router.get("/spot/ticker/single", getSinglePairTicker);
-router.get("/spot/ticker/all", getAllPairsTicker);
-router.get("/spot/ticker/specific", getSpecificPairs);
+router.get("/ticker/single", getSinglePairTicker);
+router.get("/ticker/all", getAllPairsTicker);
+router.get("/ticker/specific", getSpecificPairs);
 
 //candles
-router.get("/spot/candles", getCandles);
+router.get("/candles", getCandles);
 
 //active coins
-router.get("/spot/activeCoins", getSupportedCoins); // getSupportedCoins, syncTradeInfo
-router.get("/spot/pairs", getCoinSwitchPairs); // db
+router.get("/activeCoins", getSupportedCoins); // getSupportedCoins, syncTradeInfo
+router.get("/pairs", getCoinSwitchPairs); // db
 
 //exchange precision
-router.post("/spot/exchangePrecision", getExchangePrecision); // resolveCoinswitchAccount
+router.post("/exchangePrecision", getExchangePrecision); // resolveCoinswitchAccount
 
 //trade
-router.get("/spot/tradeInfo", getTradeInfo);
+router.get("/tradeInfo", getTradeInfo);
 // router.get("/spot/syncTradeInfo", syncTradeInfo); // getSupportedCoins, syncTradeInfo
 
 //portfolio
-router.get("/spot/balance/portfolio", getUserPortfolioWithBalance);
-router.get("/spot/portfolio", resolveCoinswitchAccount, getUserPortfolio);
+router.get("/balance/portfolio", getUserPortfolioWithBalance);
+router.get("/portfolio", resolveCoinswitchAccount, getUserPortfolio);
 
 //orders
-// router.post('/spot/order', resolveCoinswitchAccount, createSpotOrder); // done
-router.post('/spot/order', resolveCoinswitchAccount, createSpotOrder); // done
-router.delete('/spot/orders/:orderId', cancelSpotOrder); // done
-router.get('/spot/orders', resolveCoinswitchAccount, getAllSpotOrders); // done
+router.post('/master/order', createMasterSpotOrder); // done
+router.post('/order', resolveCoinswitchAccount, createSpotOrder); // done
+router.delete('/orders/:orderId', cancelSpotOrder); // done
+router.get('/orders', resolveCoinswitchAccount, getAllSpotOrders); // done
 // router.get('/spot/orders/open', getSpotOpenOrders);  // done
 // router.get('/spot/orders/closed', getSpotClosedOrders);
 
 //trades
-router.get("/spot/trades", resolveCoinswitchAccount, getUserTrades);
+router.get("/trades", resolveCoinswitchAccount, getUserTrades);
 // router.post('/spot/trades', getSpotTrades);
 
 //trading fee (spot)
-router.get('/spot/trading-fee', getSpotTradingFee);
+router.get('/trading-fee', getSpotTradingFee);
 
 // wallet
-router.post('/spot/deposit-inr', resolveCoinswitchAccount, depositINRForSpot);
-router.post('/spot/withdraw-inr', resolveCoinswitchAccount, withdrawINRFromSpot);
-router.get('/spot/deposit-withdraw-history', resolveCoinswitchAccount, getTransactionHistory);
+router.post('/deposit-inr', resolveCoinswitchAccount, depositINRForSpot);
+router.post('/withdraw-inr', resolveCoinswitchAccount, withdrawINRFromSpot);
+router.get('/deposit-withdraw-history', resolveCoinswitchAccount, getTransactionHistory);
 
 // wallet balance
-router.get('/spot/wallet-balance', resolveCoinswitchAccount, getWalletBalance);
+router.get('/wallet-balance', resolveCoinswitchAccount, getWalletBalance);
 
 
 // Future endpoints (placeholders)

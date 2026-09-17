@@ -22,18 +22,18 @@ const handleApiResponse = (res, message, data) => {
 exports.getUserTrades = catchAsync(async (req, res, next) => {
   const { id: coinswitchAccountId } = req.coinswitchAccount;
 
-  const { 
+  const {
     user,
-    side, 
-    orderId, 
+    side,
+    orderId,
     symbol,
-    limit = 50, 
-    page = 1 
+    limit = 50,
+    page = 1
   } = req.query;
 
-  const query = { 
+  const query = {
     coinswitchAccount: coinswitchAccountId,
-    isDeleted: false 
+    isDeleted: false
   };
 
   // Filters
@@ -46,7 +46,8 @@ exports.getUserTrades = catchAsync(async (req, res, next) => {
   }
 
   if (symbol) {
-    query.symbol = symbol.toUpperCase();
+    const cleanSymbol = symbol.toUpperCase().trim().replace(/\/.*/, ""); // sirf base currency nikal lo (BTC/INR -> BTC)
+    query.symbol = { $regex: `^${cleanSymbol}/`, $options: "i" };
   }
 
   const skip = (Number(page) - 1) * Number(limit);
@@ -68,6 +69,7 @@ exports.getUserTrades = catchAsync(async (req, res, next) => {
 });
 
 
+// not being used
 exports.getSpotTrades = catchAsync(async (req, res, next) => {
   const { exchange, symbol } = req.body;
 

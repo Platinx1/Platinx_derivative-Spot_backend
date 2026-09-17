@@ -20,7 +20,6 @@ const coinswitchPortfolioSchema = new Schema(
 
     // ─── Core Holdings ─────────────────────
     totalQuantity: { ...D("0") },
-    // lockedQuantity: { ...D("0") }, // qty reserved by open SELL orders
 
     // ─── Price & Investment Info ─────────────────────
     averageBuyPrice: { ...D("0") }, 
