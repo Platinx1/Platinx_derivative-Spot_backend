@@ -18,7 +18,7 @@ const resolveCoinswitchAccount = catchAsync(async (req, res, next) => {
   }).lean();
 
   if (!account) {
-    return next(new AppError("CoinSwitch account not found for this user", 404));
+    return next(new AppError("Spot account not found for this user", 404));
   }
 
   // Attach account to request

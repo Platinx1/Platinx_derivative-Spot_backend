@@ -96,6 +96,7 @@ const allowedOrigins = [
   "http://127.0.0.1:3000",
   "https://platinx.exchange",
   "https://trade.platinx.exchange",
+  "https://trade-platinx-sandbox.pages.dev"
 ];
 
 const corsOptions = {

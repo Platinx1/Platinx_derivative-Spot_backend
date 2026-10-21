@@ -15,7 +15,7 @@ const resolvePi42Account = catchAsync(async (req, res, next) => {
   const account = await Pi42Account.findOne({ user: String(userKey), isDeleted: false }).lean();
 
   if (!account) {
-    return next(new AppError("Account not found for this user", 404));
+    return next(new AppError("Futures account not found for this user", 404));
   }
 
   if(!account.pi42UserId || !account.pi42AccountId) {
