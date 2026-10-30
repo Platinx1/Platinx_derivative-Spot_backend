@@ -4,13 +4,15 @@ const jwt = require("jsonwebtoken");
 const AppError = require("../utils/AppError");
 
 const verifyAccessToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.access_token || req.headers.authorization || req.headers["x-access-token"];
+  console.log("////////////authHeader:", authHeader);
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return next(new AppError("Authorization token missing", 401));
   }
 
   const token = authHeader.split(" ")[0] === "Bearer" ? authHeader.split(" ")[1] : authHeader.split(" ")[0];
+  console.log("////////////token:", token);
 
   let payload;
   try {
