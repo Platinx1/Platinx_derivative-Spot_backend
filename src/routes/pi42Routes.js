@@ -18,6 +18,8 @@ const { getMarginHistorySync } = require("../controllers/user/pi42MarginHistory/
 const { getPairByName } = require("../controllers/user/pi42Pairs/pi42Pairs");
 
 const resolvePi42Account = require("../middleware/resolvePi42Account");
+const verifyAccessToken = require("../middleware/verifyAccessToken");
+const resolvePi42Account = require("../middleware/resolvePi42AccountFromToken");
 const { getBasePairs, getDeliveryTimes, getInstrumentInfo, getInstrumentInfoBySymbols, getConversionRate, getOrderBook, getRecentTrades } = require("../controllers/user/pi42Options/publicEndpoints/publicEndpoints");
 const { createPi42UsersOptionsAccount } = require("../controllers/user/pi42Options/createAccount/createAccount");
 const { transferBalance, getOptionsWalletBalance } = require("../controllers/user/pi42Options/wallet/wallet");
@@ -42,53 +44,53 @@ router.get("/user-meta", getUserMeta); // will return leverage preference, auto 
 router.get("/user-data", getAccountByUser); 
 
 // wallet
-router.post("/deposit-inr", resolvePi42Account, depositINR);
-router.post("/withdraw-inr", resolvePi42Account, withdrawINR);
-router.post("/deposit-withdraw-history", resolvePi42Account, getDepositWithdrawHistory);
-router.post("/wallet-history", resolvePi42Account, getDepositWithdrawHistoryFromDB); // db
-router.get("/futures-wallet/details", resolvePi42Account, getFuturesWalletDetails);
+router.post("/deposit-inr", verifyAccessToken, resolvePi42Account, depositINR);
+router.post("/withdraw-inr", verifyAccessToken, resolvePi42Account, withdrawINR);
+router.post("/deposit-withdraw-history", verifyAccessToken, resolvePi42Account, getDepositWithdrawHistory);
+router.post("/wallet-history", verifyAccessToken, resolvePi42Account, getDepositWithdrawHistoryFromDB); // db
+router.get("/futures-wallet/details", verifyAccessToken, resolvePi42Account, getFuturesWalletDetails);
 
 // transaction history
-router.get("/transaction-history", resolvePi42Account, getTransactionHistory);
-router.get("/transaction-history-sync", resolvePi42Account, getTransactionHistorySync);
-router.get("/transaction-history-by-id", resolvePi42Account, getTransactionHistoryById);
+router.get("/transaction-history", verifyAccessToken, resolvePi42Account, getTransactionHistory);
+router.get("/transaction-history-sync", verifyAccessToken, resolvePi42Account, getTransactionHistorySync);
+router.get("/transaction-history-by-id", verifyAccessToken, resolvePi42Account, getTransactionHistoryById);
 
 // order
-router.post("/place-order", resolvePi42Account, placeOrder);
-router.post("/place-order-with-leverage", resolvePi42Account, placeOrderWithLeverage);
-router.get("/order-by-client-order-id", resolvePi42Account, getOrderByClientOrderId);
-router.post("/order/get-multiple", resolvePi42Account, getMultipleOrdersByClientOrderId);
-router.get("/open-orders", resolvePi42Account, getOpenOrders);  // open-orders vs order-history
-router.post("/edit-order", resolvePi42Account, editOrder);
-router.post("/delete-order", resolvePi42Account, cancelOrder);
-router.post("/cancel-all-orders", resolvePi42Account, cancelAllOrders);
+router.post("/place-order", verifyAccessToken, resolvePi42Account, placeOrder);
+router.post("/place-order-with-leverage", verifyAccessToken, resolvePi42Account, placeOrderWithLeverage);
+router.get("/order-by-client-order-id", verifyAccessToken, resolvePi42Account, getOrderByClientOrderId);
+router.post("/order/get-multiple", verifyAccessToken, resolvePi42Account, getMultipleOrdersByClientOrderId);
+router.get("/open-orders", verifyAccessToken, resolvePi42Account, getOpenOrders);  // open-orders vs order-history
+router.post("/edit-order", verifyAccessToken, resolvePi42Account, editOrder);
+router.post("/delete-order", verifyAccessToken, resolvePi42Account, cancelOrder);
+router.post("/cancel-all-orders", verifyAccessToken, resolvePi42Account, cancelAllOrders);
 
 // positions
-router.get("/positions", resolvePi42Account, getPositions);
-router.get("/positions-by-id", resolvePi42Account, getPositionById);
-router.get("/positions/history", resolvePi42Account, getPositionsHistory);
-router.get("/positions/close-all-positions", resolvePi42Account, closeAllPositions);
-router.post("/positions/get-multiple", resolvePi42Account, getMultiplePositions);
-router.post("/positions/auto-top-up", resolvePi42Account, setAutoTopUp); // set auto topup for a position
-router.post("/positions/set-auto-top-up-prefernce", resolvePi42Account, setAutoTopUpPreference); // set auto-topup preference for new positions
-router.post("/positions/reverse-position", resolvePi42Account, reversePosition);
+router.get("/positions", verifyAccessToken, resolvePi42Account, getPositions);
+router.get("/positions-by-id", verifyAccessToken, resolvePi42Account, getPositionById);
+router.get("/positions/history", verifyAccessToken, resolvePi42Account, getPositionsHistory);
+router.get("/positions/close-all-positions", verifyAccessToken, resolvePi42Account, closeAllPositions);
+router.post("/positions/get-multiple", verifyAccessToken, resolvePi42Account, getMultiplePositions);
+router.post("/positions/auto-top-up", verifyAccessToken, resolvePi42Account, setAutoTopUp); // set auto topup for a position
+router.post("/positions/set-auto-top-up-prefernce", verifyAccessToken, resolvePi42Account, setAutoTopUpPreference); // set auto-topup preference for new positions
+router.post("/positions/reverse-position", verifyAccessToken, resolvePi42Account, reversePosition);
 
 // trade history
-router.get("/trade-history", resolvePi42Account, getTradeHistory); // trade history vs position history vs order history
-router.get("/trade-history-sync", resolvePi42Account, getTradeHistorySync); // trade history vs position history vs order history
-router.get("/trade-history-by-id", resolvePi42Account, getTradeHistoryById);
-router.get("/trades-by-position", resolvePi42Account, getTradesByPosition); // from db
+router.get("/trade-history", verifyAccessToken, resolvePi42Account, getTradeHistory); // trade history vs position history vs order history
+router.get("/trade-history-sync", verifyAccessToken, resolvePi42Account, getTradeHistorySync); // trade history vs position history vs order history
+router.get("/trade-history-by-id", verifyAccessToken, resolvePi42Account, getTradeHistoryById);
+router.get("/trades-by-position", verifyAccessToken, resolvePi42Account, getTradesByPosition); // from db
 
 
 // margin history
-router.get("/margin-history-sync", resolvePi42Account, getMarginHistorySync);
+router.get("/margin-history-sync", verifyAccessToken, resolvePi42Account, getMarginHistorySync);
 
 
 // leverage
-router.post("/leverage/update", resolvePi42Account, updateLeverage);
+router.post("/leverage/update", verifyAccessToken, resolvePi42Account, updateLeverage);
 
 // pair info
-router.get("/pair-by-name", getPairByName);
+router.get("/pair-by-name", verifyAccessToken, resolvePi42Account, getPairByName);
 
 
 // -------------------------- options endpoints --------------------------
@@ -104,24 +106,24 @@ router.get('/options/order-book', getOrderBook);
 router.get('/options/recent-trades', getRecentTrades);
 
 // create options account
-router.post('/options/create-options-account', resolvePi42Account, createPi42UsersOptionsAccount);
+router.post('/options/create-options-account', verifyAccessToken, resolvePi42Account, createPi42UsersOptionsAccount);
 
 // wallet
-router.post('/options/wallet/transfer-balance', resolvePi42Account, transferBalance);
-router.get('/options/wallet/details', resolvePi42Account, getOptionsWalletBalance);
+router.post('/options/wallet/transfer-balance', verifyAccessToken, resolvePi42Account, transferBalance);
+router.get('/options/wallet/details', verifyAccessToken, resolvePi42Account, getOptionsWalletBalance);
 
 // orders
-router.post('/options/place-order', resolvePi42Account, placeOptionsOrder);
-router.get('/options/open-orders',resolvePi42Account, getOpenOptionsOrders);
-router.get('/options/order-history', resolvePi42Account, getOptionsOrderHistory);
-router.get('/options/order-details', resolvePi42Account, getOptionsOrderDetails);
-router.get('/options/order/ref-id', resolvePi42Account, getOptionsOrderByRefId);
-router.delete('/options/delete-order', resolvePi42Account, deleteOptionsOrder);
-router.patch('/options/edit-order', resolvePi42Account, editOptionsOrder);
-router.delete('/options/delete-all-orders', resolvePi42Account, deleteAllOptionsOrders);
+router.post('/options/place-order', verifyAccessToken, resolvePi42Account, placeOptionsOrder);
+router.get('/options/open-orders',verifyAccessToken, resolvePi42Account, getOpenOptionsOrders);
+router.get('/options/order-history', verifyAccessToken, resolvePi42Account, getOptionsOrderHistory);
+router.get('/options/order-details', verifyAccessToken, resolvePi42Account, getOptionsOrderDetails);
+router.get('/options/order/ref-id', verifyAccessToken, resolvePi42Account, getOptionsOrderByRefId);
+router.delete('/options/delete-order', verifyAccessToken, resolvePi42Account, deleteOptionsOrder);
+router.patch('/options/edit-order', verifyAccessToken, resolvePi42Account, editOptionsOrder);
+router.delete('/options/delete-all-orders', verifyAccessToken, resolvePi42Account, deleteAllOptionsOrders);
 
 // positions
-router.get('/options/open-positions', resolvePi42Account, getOpenPositions);
-router.get('/options/position-history', resolvePi42Account, getPositionHistory);
+router.get('/options/open-positions', verifyAccessToken, resolvePi42Account, getOpenPositions);
+router.get('/options/position-history', verifyAccessToken, resolvePi42Account, getPositionHistory);
 
 module.exports = router;
