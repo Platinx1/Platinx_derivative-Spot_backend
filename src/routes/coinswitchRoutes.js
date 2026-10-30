@@ -63,6 +63,8 @@ const {
 } = require("../controllers/user/coinswitchSpot/coinswitchWallet");
 
 const resolveCoinswitchAccount = require("../middleware/resolveCoinswitchAccount");
+const verifyAccessToken = require("../middleware/verifyAccessToken");
+const resolveCoinswitchAccountFromToken = require("../middleware/resolveCoinswitchAccountFromToken");
 
 const router = express.Router();
 
@@ -90,30 +92,30 @@ router.get("/tradeInfo", getTradeInfo);
 
 //portfolio
 router.get("/balance/portfolio", getUserPortfolioWithBalance);
-router.get("/portfolio", resolveCoinswitchAccount, getUserPortfolio);
+router.get("/portfolio", verifyAccessToken, resolveCoinswitchAccountFromToken, getUserPortfolio);
 
 //orders
 router.post('/master/order', createMasterSpotOrder); // done
-router.post('/order', resolveCoinswitchAccount, createSpotOrder); // done
-router.delete('/orders/:orderId', cancelSpotOrder); // done
-router.get('/orders', resolveCoinswitchAccount, getAllSpotOrders); // done
+router.post('/order', verifyAccessToken, resolveCoinswitchAccountFromToken, createSpotOrder); // done
+router.delete('/orders/:orderId', verifyAccessToken, resolveCoinswitchAccountFromToken, cancelSpotOrder); // done
+router.get('/orders', verifyAccessToken, resolveCoinswitchAccountFromToken, getAllSpotOrders); // done
 // router.get('/spot/orders/open', getSpotOpenOrders);  // done
 // router.get('/spot/orders/closed', getSpotClosedOrders);
 
 //trades
-router.get("/trades", resolveCoinswitchAccount, getUserTrades);
+router.get("/trades", verifyAccessToken, resolveCoinswitchAccountFromToken, getUserTrades);
 // router.post('/spot/trades', getSpotTrades);
 
 //trading fee (spot)
 router.get('/trading-fee', getSpotTradingFee);
 
 // wallet
-router.post('/deposit-inr', resolveCoinswitchAccount, depositINRForSpot);
-router.post('/withdraw-inr', resolveCoinswitchAccount, withdrawINRFromSpot);
-router.get('/deposit-withdraw-history', resolveCoinswitchAccount, getTransactionHistory);
+router.post('/deposit-inr', verifyAccessToken, resolveCoinswitchAccountFromToken, depositINRForSpot);
+router.post('/withdraw-inr', verifyAccessToken, resolveCoinswitchAccountFromToken, withdrawINRFromSpot);
+router.get('/deposit-withdraw-history', verifyAccessToken, resolveCoinswitchAccountFromToken, getTransactionHistory);
 
 // wallet balance
-router.get('/wallet-balance', resolveCoinswitchAccount, getWalletBalance);
+router.get('/wallet-balance', verifyAccessToken, resolveCoinswitchAccountFromToken, getWalletBalance);
 
 
 // Future endpoints (placeholders)
