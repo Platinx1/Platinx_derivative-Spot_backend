@@ -3,7 +3,6 @@
 const Pi42Account = require("../models/pi42Models/pi42Account");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
-const verifyAccessToken = require("./verifyAccessToken");
 
 const resolvePi42Account = catchAsync(async (req, res, next) => {
   // user id comes from the verified access token
@@ -36,5 +35,4 @@ const resolvePi42Account = catchAsync(async (req, res, next) => {
   next();
 });
 
-// Verify the token first, then resolve the Pi42 account for that user
-module.exports = [verifyAccessToken, resolvePi42Account];
+module.exports = resolvePi42Account;

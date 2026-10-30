@@ -3,16 +3,22 @@
 const jwt = require("jsonwebtoken");
 const AppError = require("../utils/AppError");
 
-const verifyAccessToken = (req, res, next) => {
-  const authHeader = req.headers.access_token || req.headers.authorization || req.headers["x-access-token"];
-  console.log("////////////authHeader:", authHeader);
+// Cookie value is "Bearer%20<jwt>"; cookie-parser URL-decodes it to "Bearer <jwt>".
+// Falls back to the Authorization header for Postman / non-browser clients.
+const extractToken = (req) => {
+  const raw = req.cookies?.access_token || req.headers.authorization;
+  if (!raw) return null;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const value = decodeURIComponent(String(raw)).trim();
+  return value.startsWith("Bearer ") ? value.slice(7).trim() : value;
+};
+
+const verifyAccessToken = (req, res, next) => {
+  const token = extractToken(req);
+
+  if (!token) {
     return next(new AppError("Authorization token missing", 401));
   }
-
-  const token = authHeader.split(" ")[0] === "Bearer" ? authHeader.split(" ")[1] : authHeader.split(" ")[0];
-  console.log("////////////token:", token);
 
   let payload;
   try {
@@ -26,8 +32,6 @@ const verifyAccessToken = (req, res, next) => {
   if (!userId) {
     return next(new AppError("User id not found in token", 401));
   }
-
-  console.log("user_id:", userId);
 
   req.userId = String(userId);
 
