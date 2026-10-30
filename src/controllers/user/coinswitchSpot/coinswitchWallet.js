@@ -1,10 +1,9 @@
 const mongoose = require("mongoose");
-const axios = require('axios');
-const catchAsync = require('../../../utils/catchAsync');
-const AppError = require('../../../utils/AppError');
-const CoinswitchWallet = require('../../../models/coinswitchModels/coinswitchWallet');
-const CoinswitchWalletTransaction = require('../../../models/coinswitchModels/coinswitchWalletTransaction');
-
+const axios = require("axios");
+const catchAsync = require("../../../utils/catchAsync");
+const AppError = require("../../../utils/AppError");
+const CoinswitchWallet = require("../../../models/coinswitchModels/coinswitchWallet");
+const CoinswitchWalletTransaction = require("../../../models/coinswitchModels/coinswitchWalletTransaction");
 
 // exports.depositINRForSpot = catchAsync(async (req, res, next) => {
 //   const { user, amount } = req.body;
@@ -36,7 +35,7 @@ const CoinswitchWalletTransaction = require('../../../models/coinswitchModels/co
 
 //   if (!futuresRes.data?.success) {
 //     return next(new AppError(
-//       futuresRes.data?.msg || "Failed to debit from futures wallet", 
+//       futuresRes.data?.msg || "Failed to debit from futures wallet",
 //       400
 //     ));
 //   }
@@ -92,7 +91,6 @@ const CoinswitchWalletTransaction = require('../../../models/coinswitchModels/co
 //   });
 // });
 
-
 exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   const { user, amount } = req.body;
 
@@ -107,7 +105,8 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   /**
    * STEP 1: Deduct from Futures Wallet
    */
-  const futuresUrl = "https://platinx.exchange/api/futureDepositFromMainWallet";
+  // const futuresUrl = "https://platinx.exchange/api/futureDepositFromMainWallet";
+  const futuresUrl = `${process.env.MAIN_WALLET_BASE_URL}/spotDepositFromMainWallet`;
 
   const futuresHeaders = {
     "Content-Type": "application/json",
@@ -128,16 +127,16 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   } catch (err) {
     console.error(
       "❌ Futures Wallet API Error:",
-      err?.response?.data || err.message
+      err?.response?.data || err.message,
     );
 
     return next(
       new AppError(
         err?.response?.data?.msg ||
-        err?.response?.data?.message ||
-        "Failed to debit from futures wallet",
-        err?.response?.status || 500
-      )
+          err?.response?.data?.message ||
+          "Failed to debit from futures wallet",
+        err?.response?.status || 500,
+      ),
     );
   }
 
@@ -145,8 +144,8 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         futuresRes.data?.msg || "Failed to debit from futures wallet",
-        400
-      )
+        400,
+      ),
     );
   }
 
@@ -175,14 +174,15 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
             availableForSpot: depositAmount,
           },
         ],
-        { session }
+        { session },
       );
 
       wallet = wallets[0];
     } else {
       wallet.totalBalance = Number(wallet.totalBalance) + Number(depositAmount);
       wallet.freeBalance = Number(wallet.freeBalance) + Number(depositAmount);
-      wallet.availableForSpot = Number(wallet.availableForSpot) + Number(depositAmount);
+      wallet.availableForSpot =
+        Number(wallet.availableForSpot) + Number(depositAmount);
 
       await wallet.save({ session });
     }
@@ -198,17 +198,14 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
           coinswitchTransactionTime: new Date(),
         },
       ],
-      { session }
+      { session },
     );
 
     await session.commitTransaction();
-    
   } catch (err) {
-
     await session.abortTransaction();
     console.error("❌ MongoDB Transaction Error:", err);
     return next(new AppError("Failed to update Spot Wallet", 500));
-
   } finally {
     session.endSession();
   }
@@ -216,10 +213,9 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   return res.status(200).json({
     status: true,
     message: "INR deposited successfully to Spot Wallet",
-    data: wallet
+    data: wallet,
   });
 });
-
 
 exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
   const { user, amount } = req.body;
@@ -239,7 +235,9 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
   /**
    * STEP 1: Check Spot Wallet Balance
    */
-  const wallet = await CoinswitchWallet.findOne({ coinswitchAccount: coinswitchAccountId });
+  const wallet = await CoinswitchWallet.findOne({
+    coinswitchAccount: coinswitchAccountId,
+  });
 
   if (!wallet) {
     return next(new AppError("Spot wallet not found", 404));
@@ -252,7 +250,8 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
   /**
    * STEP 2: Credit Futures Wallet
    */
-  const futuresUrl = "https://platinx.exchange/api/futureWithdrawToMainWallet";
+  // const futuresUrl = "https://platinx.exchange/api/futureWithdrawToMainWallet";
+  const futuresUrl = `${process.env.MAIN_WALLET_BASE_URL}/spotWithdrawToMainWallet`;
 
   const futuresHeaders = {
     "Content-Type": "application/json",
@@ -274,15 +273,17 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
     futuresResponse = apiRes.data;
   } catch (futureErr) {
     console.error(
-      "❌ Futures Wallet API Error:", futureErr?.response?.data || futureErr.message);
+      "❌ Futures Wallet API Error:",
+      futureErr?.response?.data || futureErr.message,
+    );
 
     return next(
       new AppError(
         futureErr?.response?.data?.msg ||
-        futureErr?.response?.data?.message ||
-        "Failed to transfer funds to Futures Wallet",
-        futureErr?.response?.status || 500
-      )
+          futureErr?.response?.data?.message ||
+          "Failed to transfer funds to Futures Wallet",
+        futureErr?.response?.status || 500,
+      ),
     );
   }
 
@@ -290,8 +291,8 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         futuresResponse?.msg || "Failed to transfer funds to Futures Wallet",
-        400
-      )
+        400,
+      ),
     );
   }
 
@@ -305,7 +306,8 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
 
     wallet.totalBalance = Number(wallet.totalBalance) - Number(withdrawAmount);
     wallet.freeBalance = Number(wallet.freeBalance) - Number(withdrawAmount);
-    wallet.availableForSpot = Number(wallet.availableForSpot) - Number(withdrawAmount);
+    wallet.availableForSpot =
+      Number(wallet.availableForSpot) - Number(withdrawAmount);
 
     await wallet.save({ session });
 
@@ -320,7 +322,7 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
           coinswitchTransactionTime: new Date(),
         },
       ],
-      { session }
+      { session },
     );
 
     await session.commitTransaction();
@@ -332,8 +334,8 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         "Amount transferred to Futures Wallet but failed to update Spot Wallet. Please contact support.",
-        500
-      )
+        500,
+      ),
     );
   } finally {
     session.endSession();
@@ -346,16 +348,10 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
   });
 });
 
-
 exports.getTransactionHistory = catchAsync(async (req, res, next) => {
   const { id: coinswitchAccountId } = req.coinswitchAccount;
 
-  const {
-    type,
-    status,
-    limit = 30,
-    page = 1
-  } = req.query;
+  const { type, status, limit = 30, page = 1 } = req.query;
 
   const query = { coinswitchAccount: coinswitchAccountId };
 
@@ -376,10 +372,9 @@ exports.getTransactionHistory = catchAsync(async (req, res, next) => {
     message: "Transaction history fetched successfully",
     currentPage: Number(page),
     totalPages: Math.ceil(total / limit),
-    data: transactions
+    data: transactions,
   });
 });
-
 
 exports.getWalletBalance = catchAsync(async (req, res, next) => {
   const { id: coinswitchAccountId } = req.coinswitchAccount;

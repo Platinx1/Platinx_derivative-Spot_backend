@@ -1,14 +1,23 @@
 const crypto = require("crypto");
 const axios = require("axios");
-const moment = require('moment-timezone');
+const moment = require("moment-timezone");
 
 const catchAsync = require("../../../utils/catchAsync");
 const AppError = require("../../../utils/AppError");
 const buildHeaders = require("../../../utils/buildHeaders");
-const { getPi42User, getPi42UserByPlatinxUserId } = require("../../../services/pi42UserService");
-const { createDepositTransaction, createWithdrawalTransaction } = require("../../../services/pi42WalletTransactionService");
-const { createFuturesWallet, upsertFuturesWallet } = require("../../../services/pi42WalletService");
-const Pi42WalletTransaction = require('../../../models/pi42Models/pi42WalletTransaction'); // adjust path
+const {
+  getPi42User,
+  getPi42UserByPlatinxUserId,
+} = require("../../../services/pi42UserService");
+const {
+  createDepositTransaction,
+  createWithdrawalTransaction,
+} = require("../../../services/pi42WalletTransactionService");
+const {
+  createFuturesWallet,
+  upsertFuturesWallet,
+} = require("../../../services/pi42WalletService");
+const Pi42WalletTransaction = require("../../../models/pi42Models/pi42WalletTransaction"); // adjust path
 
 const generateReferenceIdForDeposit = () => {
   return `dep_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
@@ -17,7 +26,6 @@ const generateReferenceIdForDeposit = () => {
 const generateReferenceIdForWithdrawl = () => {
   return `wd_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 };
-
 
 // exports.depositINR = catchAsync(async (req, res, next) => {
 //   const { amount } = req.body;
@@ -95,7 +103,6 @@ const generateReferenceIdForWithdrawl = () => {
 //   });
 // });
 
-
 exports.depositINR = catchAsync(async (req, res, next) => {
   const { user, amount } = req.body;
 
@@ -103,7 +110,8 @@ exports.depositINR = catchAsync(async (req, res, next) => {
   const { id, userId, accountId } = req.pi42Account;
 
   if (!amount) return next(new AppError("amount is required", 400));
-  if (Number(amount) <= 0) return next(new AppError("Amount must be greater than 0", 400));
+  if (Number(amount) <= 0)
+    return next(new AppError("Amount must be greater than 0", 400));
 
   /**
    * =========================================
@@ -112,7 +120,8 @@ exports.depositINR = catchAsync(async (req, res, next) => {
    */
 
   try {
-    const futuresUrl = "https://platinx.exchange/api/futureDepositFromMainWallet";
+    // const futuresUrl = "https://platinx.exchange/api/futureDepositFromMainWallet";
+    const futuresUrl = `${process.env.MAIN_WALLET_BASE_URL}/futureDepositFromMainWallet`;
 
     const futuresHeaders = {
       "Content-Type": "application/json",
@@ -124,40 +133,35 @@ exports.depositINR = catchAsync(async (req, res, next) => {
       amount: Number(amount),
     };
 
-    const futuresRes = await axios.post(
-      futuresUrl,
-      futuresBody,
-      {
-        headers: futuresHeaders,
-      }
-    );
+    const futuresRes = await axios.post(futuresUrl, futuresBody, {
+      headers: futuresHeaders,
+    });
 
     // const futuresRes = { data: { success: true } };
 
-    console.log(
-      "✅ Futures wallet debited successfully:",
-      futuresRes.data
-    );
+    console.log("✅ Futures wallet debited successfully:", futuresRes.data);
 
     // ❌ Stop execution if API says success = false
     if (!futuresRes.data?.success) {
       return next(
         new AppError(
-          futuresRes.data?.msg ||
-            "Failed to debit amount from futures wallet",
-          400
-        )
+          futuresRes.data?.msg || "Failed to debit amount from futures wallet",
+          400,
+        ),
       );
     }
-
   } catch (futureErr) {
-    console.error("❌ Futures Wallet API Error:", futureErr?.response?.data || futureErr.message);
+    console.error(
+      "❌ Futures Wallet API Error:",
+      futureErr?.response?.data || futureErr.message,
+    );
 
     return next(
       new AppError(
-        futureErr?.response?.data?.msg || "Failed to process futures wallet deduction",
-        futureErr?.response?.status || 500
-      )
+        futureErr?.response?.data?.msg ||
+          "Failed to process futures wallet deduction",
+        futureErr?.response?.status || 500,
+      ),
     );
   }
 
@@ -175,7 +179,7 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     process.env.PARTNER_NAME,
     process.env.API_COOKIE,
     userId,
-    accountId
+    accountId,
   );
 
   // 🔥 referenceId (VERY IMPORTANT)
@@ -197,8 +201,9 @@ exports.depositINR = catchAsync(async (req, res, next) => {
 
     return next(
       new AppError(
-        err?.response?.data?.message || "PI42 deposit failed", err?.response?.status || 500
-      )
+        err?.response?.data?.message || "PI42 deposit failed",
+        err?.response?.status || 500,
+      ),
     );
   }
 
@@ -213,17 +218,9 @@ exports.depositINR = catchAsync(async (req, res, next) => {
    */
 
   try {
-    await createDepositTransaction(
-      id,
-      response,
-      Number(amount),
-      referenceId
-    );
+    await createDepositTransaction(id, response, Number(amount), referenceId);
   } catch (saveErr) {
-    console.error(
-      "❌ Failed to save deposit transaction to DB:",
-      saveErr
-    );
+    console.error("❌ Failed to save deposit transaction to DB:", saveErr);
 
     // Deposit already succeeded on PI42
   }
@@ -237,7 +234,6 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     },
   });
 });
-
 
 // exports.withdrawINR = catchAsync(async (req, res, next) => {
 //   const { amount } = req.body;
@@ -315,8 +311,6 @@ exports.depositINR = catchAsync(async (req, res, next) => {
 //   });
 // });
 
-
-
 exports.withdrawINR = catchAsync(async (req, res, next) => {
   const { user, amount } = req.body;
 
@@ -339,7 +333,7 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
     process.env.PARTNER_NAME,
     process.env.API_COOKIE,
     userId,
-    accountId
+    accountId,
   );
 
   // 🔥 referenceId (VERY IMPORTANT)
@@ -357,13 +351,16 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
     const apiRes = await axios.post(url, body, { headers });
     response = apiRes.data;
   } catch (err) {
-    console.error("❌ PI42 Withdraw Error:", err?.response?.data || err.message);
+    console.error(
+      "❌ PI42 Withdraw Error:",
+      err?.response?.data || err.message,
+    );
 
     return next(
       new AppError(
         err?.response?.data?.message || "PI42 withdraw failed",
-        err?.response?.status || 500
-      )
+        err?.response?.status || 500,
+      ),
     );
   }
 
@@ -376,15 +373,16 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
       id, // pi42Account
       response,
       Number(amount),
-      referenceId
+      referenceId,
     );
   } catch (saveErr) {
     console.error("❌ Failed to save withdrawal transaction to DB:", saveErr);
     // We still return success because withdrawal request succeeded on Pi42 side
   }
 
-   try {
-    const futuresUrl = `https://platinx.exchange/api/futureWithdrawToMainWallet`;
+  try {
+    // const futuresUrl = `https://platinx.exchange/api/futureWithdrawToMainWallet`;
+    const futuresUrl = `${process.env.MAIN_WALLET_BASE_URL}/futureWithdrawToMainWallet`;
 
     const futuresHeaders = {
       "Content-Type": "application/json",
@@ -396,14 +394,15 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
       amount: Number(amount),
     };
 
-    const futuresRes = await axios.post(futuresUrl, futuresBody, {headers: futuresHeaders});
+    const futuresRes = await axios.post(futuresUrl, futuresBody, {
+      headers: futuresHeaders,
+    });
 
     console.log("✅ Futures wallet updated successfully:", futuresRes.data);
-
   } catch (futureErr) {
     console.error(
       "❌ Futures Wallet API Error:",
-      futureErr?.response?.data || futureErr.message
+      futureErr?.response?.data || futureErr.message,
     );
 
     // OPTIONAL:
@@ -420,7 +419,6 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
     },
   });
 });
-
 
 exports.getDepositWithdrawHistory = catchAsync(async (req, res, next) => {
   const {
@@ -454,7 +452,7 @@ exports.getDepositWithdrawHistory = catchAsync(async (req, res, next) => {
     process.env.PARTNER_NAME,
     process.env.API_COOKIE,
     userId,
-    accountId
+    accountId,
   );
 
   // 🔹 query params build
@@ -478,16 +476,13 @@ exports.getDepositWithdrawHistory = catchAsync(async (req, res, next) => {
 
     response = apiRes.data;
   } catch (err) {
-    console.error(
-      "❌ PI42 History Error:",
-      err?.response?.data || err.message
-    );
+    console.error("❌ PI42 History Error:", err?.response?.data || err.message);
 
     return next(
       new AppError(
         err?.response?.data?.message || "Failed to fetch history",
-        err?.response?.status || 500
-      )
+        err?.response?.status || 500,
+      ),
     );
   }
 
@@ -507,7 +502,6 @@ exports.getDepositWithdrawHistory = catchAsync(async (req, res, next) => {
   });
 });
 
-
 exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
   const { marginAsset = "INR" } = req.query;
 
@@ -518,9 +512,7 @@ exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
   }
 
   if (!["INR", "USDT"].includes(marginAsset)) {
-    return next(
-      new AppError("marginAsset must be INR or USDT", 400)
-    );
+    return next(new AppError("marginAsset must be INR or USDT", 400));
   }
 
   const userData = await getPi42User(userId, accountId);
@@ -537,7 +529,7 @@ exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
     process.env.PARTNER_NAME,
     process.env.API_COOKIE,
     userId,
-    accountId
+    accountId,
   );
 
   // 🔹 query params
@@ -553,16 +545,13 @@ exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
 
     response = apiRes.data;
   } catch (err) {
-    console.error(
-      "❌ PI42 Wallet Error:",
-      err?.response?.data || err.message
-    );
+    console.error("❌ PI42 Wallet Error:", err?.response?.data || err.message);
 
     return next(
       new AppError(
         err?.response?.data?.message || "Failed to fetch wallet details",
-        err?.response?.status || 500
-      )
+        err?.response?.status || 500,
+      ),
     );
   }
 
@@ -584,7 +573,6 @@ exports.getFuturesWalletDetails = catchAsync(async (req, res, next) => {
   });
 });
 
-
 exports.getDepositWithdrawHistoryFromDB = catchAsync(async (req, res, next) => {
   const {
     page = 1,
@@ -595,7 +583,7 @@ exports.getDepositWithdrawHistoryFromDB = catchAsync(async (req, res, next) => {
     marginAsset = "INR",
   } = req.body;
 
-  const { id } = req.pi42Account;   // Assuming this gives you the account
+  const { id } = req.pi42Account; // Assuming this gives you the account
 
   if (Number(page) < 1) {
     return next(new AppError("page must be >= 1", 400));
@@ -627,7 +615,7 @@ exports.getDepositWithdrawHistoryFromDB = catchAsync(async (req, res, next) => {
 
   // Fetch from MongoDB - sorted by newest first (descending)
   const transactions = await Pi42WalletTransaction.find(filter)
-    .sort({ pi42TransactionTime: -1 })     // Newest first
+    .sort({ pi42TransactionTime: -1 }) // Newest first
     .skip(skip)
     .limit(Number(limit))
     .lean();
@@ -635,17 +623,18 @@ exports.getDepositWithdrawHistoryFromDB = catchAsync(async (req, res, next) => {
   const totalCount = await Pi42WalletTransaction.countDocuments(filter);
 
   // Format response according to UI
-  const formattedData = transactions.map(tx => ({
+  const formattedData = transactions.map((tx) => ({
     type: tx.type,
-    amount: tx.type === "DEPOSIT" 
-      ? `+${tx.amountCredited || tx.amount}` 
-      : `-${tx.amountDebited || tx.amount}`,
+    amount:
+      tx.type === "DEPOSIT"
+        ? `+${tx.amountCredited || tx.amount}`
+        : `-${tx.amountDebited || tx.amount}`,
     status: tx.paymentStatus || "SUCCESS",
-    date: tx.pi42TransactionTime 
+    date: tx.pi42TransactionTime
       ? moment(tx.pi42TransactionTime)
-          .tz('Asia/Kolkata')
-          .format('DD MMM YYYY, hh:mm a')
-      : '',
+          .tz("Asia/Kolkata")
+          .format("DD MMM YYYY, hh:mm a")
+      : "",
     // Extra useful fields (you can hide in UI if not needed)
     referenceId: tx.referenceId,
     orderId: tx.transactionId,
@@ -661,6 +650,6 @@ exports.getDepositWithdrawHistoryFromDB = catchAsync(async (req, res, next) => {
       page: Number(page),
       limit: Number(limit),
       hasMore: skip + formattedData.length < totalCount,
-    }
+    },
   });
 });
