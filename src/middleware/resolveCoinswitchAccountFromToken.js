@@ -3,7 +3,6 @@
 const CoinSwitchSpotAccount = require("../models/coinswitchModels/coinSwitchSpotAccount");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
-const verifyAccessToken = require("./verifyAccessToken");
 
 const resolveCoinswitchAccount = catchAsync(async (req, res, next) => {
   // user id comes from the verified access token
@@ -37,5 +36,4 @@ const resolveCoinswitchAccount = catchAsync(async (req, res, next) => {
   next();
 });
 
-// Verify the token first, then resolve the CoinSwitch account for that user
-module.exports = [verifyAccessToken, resolveCoinswitchAccount];
+module.exports = resolveCoinswitchAccount;
