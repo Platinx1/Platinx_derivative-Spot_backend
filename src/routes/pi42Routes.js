@@ -17,7 +17,7 @@ const { getTradeHistory, getTradeHistorySync, getTradeHistoryById, getTradesByPo
 const { getMarginHistorySync } = require("../controllers/user/pi42MarginHistory/pi42MarginHistory");
 const { getPairByName } = require("../controllers/user/pi42Pairs/pi42Pairs");
 
-const resolvePi42Account = require("../middleware/resolvePi42Account");
+// const resolvePi42Account = require("../middleware/resolvePi42Account");
 const verifyAccessToken = require("../middleware/verifyAccessToken");
 const resolvePi42Account = require("../middleware/resolvePi42AccountFromToken");
 const { getBasePairs, getDeliveryTimes, getInstrumentInfo, getInstrumentInfoBySymbols, getConversionRate, getOrderBook, getRecentTrades } = require("../controllers/user/pi42Options/publicEndpoints/publicEndpoints");
