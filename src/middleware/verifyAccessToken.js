@@ -10,7 +10,7 @@ const verifyAccessToken = (req, res, next) => {
     return next(new AppError("Authorization token missing", 401));
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.split(" ")[0] === "Bearer" ? authHeader.split(" ")[1] : authHeader.split(" ")[0];
 
   let payload;
   try {
