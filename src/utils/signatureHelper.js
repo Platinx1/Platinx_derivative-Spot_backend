@@ -118,8 +118,8 @@ function getAuthHeaders(
     message += bodyStr;
   }
 
-  console.log("Signature Message:::::::::", message);
-  console.log("Signing path:", signingPath);
+  // console.log("Signature Message:::::::::", message);
+  // console.log("Signing path:", signingPath);
 
   const signature = generateSignature(message, apiSecret);
 

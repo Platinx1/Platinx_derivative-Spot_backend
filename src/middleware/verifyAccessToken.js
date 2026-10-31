@@ -22,7 +22,7 @@ const verifyAccessToken = (req, res, next) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET);
+    payload = jwt.verify(token, 'bhvvkvkv');
   } catch (err) {
     return next(new AppError("Invalid or expired token", 401));
   }
