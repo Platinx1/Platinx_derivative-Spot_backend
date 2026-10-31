@@ -97,14 +97,14 @@ const generateReferenceIdForWithdrawl = () => {
 
 
 exports.depositINR = catchAsync(async (req, res, next) => {
-  const { user, amount } = req.body;
+  const { amount } = req.body;
 
   // ✅ Everything comes from middleware now
-  const { id, userId, accountId } = req.pi42Account;
+  const { id, user, userId, accountId } = req.pi42Account;
 
   if (!amount) return next(new AppError("amount is required", 400));
   if (Number(amount) <= 0) return next(new AppError("Amount must be greater than 0", 400));
-
+p
   /**
    * =========================================
    * STEP 1: Deduct amount from Futures Wallet
@@ -120,7 +120,7 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     };
 
     const futuresBody = {
-      user_id: Number(user),
+      user_id: user,
       amount: Number(amount),
     };
 
@@ -318,10 +318,10 @@ exports.depositINR = catchAsync(async (req, res, next) => {
 
 
 exports.withdrawINR = catchAsync(async (req, res, next) => {
-  const { user, amount } = req.body;
+  const { amount } = req.body;
 
   // ✅ Everything comes from middleware now
-  const { id, userId, accountId } = req.pi42Account;
+  const { id, user, userId, accountId } = req.pi42Account;
 
   if (!amount) {
     return next(new AppError("amount is required", 400));
@@ -392,7 +392,7 @@ exports.withdrawINR = catchAsync(async (req, res, next) => {
     };
 
     const futuresBody = {
-      user_id: Number(user), // convert string → number
+      user_id: user, // convert string → number
       amount: Number(amount),
     };
 

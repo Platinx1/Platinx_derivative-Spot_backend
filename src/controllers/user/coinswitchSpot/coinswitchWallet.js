@@ -94,7 +94,7 @@ const CoinswitchWalletTransaction = require('../../../models/coinswitchModels/co
 
 
 exports.depositINRForSpot = catchAsync(async (req, res, next) => {
-  const { user, amount } = req.body;
+  const { amount } = req.body;
 
   if (!amount || Number(amount) <= 0) {
     return next(new AppError("Valid amount is required", 400));
@@ -102,7 +102,7 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
 
   const depositAmount = Number(amount);
 
-  const { id: coinswitchAccountId } = req.coinswitchAccount;
+  const { id: coinswitchAccountId, user } = req.coinswitchAccount;
 
   /**
    * STEP 1: Deduct from Futures Wallet
@@ -115,7 +115,7 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   };
 
   const futuresBody = {
-    user_id: Number(user),
+    user_id: user,
     amount: depositAmount,
   };
 
@@ -222,9 +222,9 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
 
 
 exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
-  const { user, amount } = req.body;
+  const { amount } = req.body;
 
-  const { id: coinswitchAccountId } = req.coinswitchAccount;
+  const { id: coinswitchAccountId, user } = req.coinswitchAccount;
 
   if (!amount) {
     return next(new AppError("amount is required", 400));
@@ -260,7 +260,7 @@ exports.withdrawINRFromSpot = catchAsync(async (req, res, next) => {
   };
 
   const futuresBody = {
-    user_id: Number(user),
+    user_id: user,
     amount: withdrawAmount,
   };
 
