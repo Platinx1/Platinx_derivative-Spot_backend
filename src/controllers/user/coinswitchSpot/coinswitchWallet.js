@@ -101,6 +101,7 @@ exports.depositINRForSpot = catchAsync(async (req, res, next) => {
   const depositAmount = Number(amount);
 
   const { id: coinswitchAccountId, user } = req.coinswitchAccount;
+  console.log('req.coinswitchAccount', req.coinswitchAccount);
 
   /**
    * STEP 1: Deduct from Futures Wallet

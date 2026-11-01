@@ -111,7 +111,7 @@ exports.depositINR = catchAsync(async (req, res, next) => {
 
   if (!amount) return next(new AppError("amount is required", 400));
   if (Number(amount) <= 0) return next(new AppError("Amount must be greater than 0", 400));
-p
+
   /**
    * =========================================
    * STEP 1: Deduct amount from Futures Wallet
