@@ -84,6 +84,8 @@ const globalErrorHandler = require("./controllers/errorController");
 
 const app = express();
 
+app.use(cookieParser());
+
 // ====================== BODY PARSER ======================
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -134,7 +136,7 @@ app.use(cors(corsOptions));
 app.use(morgan("dev"));
 
 // ====================== COOKIE PARSER ======================
-app.use(cookieParser());
+// app.use(cookieParser());
 
 // ====================== ROUTES ======================
 appRoutes(app);
