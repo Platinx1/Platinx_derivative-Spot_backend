@@ -424,7 +424,7 @@ exports.getAllSpotOrders = catchAsync(async (req, res, next) => {
   });
 });
 
-
+// this
 exports.getSpotOpenOrders = catchAsync(async (req, res, next) => {
   const {
     count,
@@ -522,7 +522,7 @@ exports.getSpotOpenOrders = catchAsync(async (req, res, next) => {
       // no data for GET
     });
 
-    handleApiResponse(res, 'Open orders retrieved successfully', response.data);
+    handleApiResponse(res, 'Open orders retrieved successfully', response.data.data);
   } catch (error) {
     if (error.response) {
       const { status, data } = error.response;

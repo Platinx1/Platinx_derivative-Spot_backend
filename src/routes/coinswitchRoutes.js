@@ -63,6 +63,8 @@ const {
 } = require("../controllers/user/coinswitchSpot/coinswitchWallet");
 
 const resolveCoinswitchAccount = require("../middleware/resolveCoinswitchAccount");
+const resolvePi42Account = require("../middleware/resolvePi42Account");
+const { getCombinedWalletAndPortfolio } = require("../controllers/user/userProfile/userProfile");
 
 const router = express.Router();
 
@@ -97,7 +99,7 @@ router.post('/master/order', createMasterSpotOrder); // done
 router.post('/order', resolveCoinswitchAccount, createSpotOrder); // done
 router.delete('/orders/:orderId', cancelSpotOrder); // done
 router.get('/orders', resolveCoinswitchAccount, getAllSpotOrders); // done
-// router.get('/spot/orders/open', getSpotOpenOrders);  // done
+// router.get('/spot/orders/open', getSpotOpenOrders);  // done (cron job)
 // router.get('/spot/orders/closed', getSpotClosedOrders);
 
 //trades
@@ -114,6 +116,12 @@ router.get('/deposit-withdraw-history', resolveCoinswitchAccount, getTransaction
 
 // wallet balance
 router.get('/wallet-balance', resolveCoinswitchAccount, getWalletBalance);
+
+
+router.get(
+  "/combined-wallet-portfolio", 
+  resolveCoinswitchAccount, resolvePi42Account, getCombinedWalletAndPortfolio
+);
 
 
 // Future endpoints (placeholders)

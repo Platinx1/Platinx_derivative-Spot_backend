@@ -8,7 +8,8 @@ const buildHeaders = require("../../../utils/buildHeaders");
 const { getPi42User, getPi42UserByPlatinxUserId } = require("../../../services/pi42UserService");
 const { createDepositTransaction, createWithdrawalTransaction } = require("../../../services/pi42WalletTransactionService");
 const { createFuturesWallet, upsertFuturesWallet } = require("../../../services/pi42WalletService");
-const Pi42WalletTransaction = require('../../../models/pi42Models/pi42WalletTransaction'); // adjust path
+const Pi42WalletTransaction = require('../../../models/pi42Models/pi42WalletTransaction'); 
+
 
 const generateReferenceIdForDeposit = () => {
   return `dep_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
@@ -17,83 +18,6 @@ const generateReferenceIdForDeposit = () => {
 const generateReferenceIdForWithdrawl = () => {
   return `wd_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 };
-
-
-// exports.depositINR = catchAsync(async (req, res, next) => {
-//   const { amount } = req.body;
-
-//   // ✅ Everything comes from middleware now
-//   const { id, userId, accountId } = req.pi42Account;
-
-//   if (!amount) {
-//     return next(new AppError("amount is required", 400));
-//   }
-
-//   if (Number(amount) <= 0) {
-//     return next(new AppError("Amount must be greater than 0", 400));
-//   }
-
-//   const endpoint = `/v1/integration/deposit-inr`;
-//   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
-
-//   // 🔹 headers (userId + accountId required)
-//   const headers = buildHeaders(
-//     process.env.PARTNER_NAME,
-//     process.env.API_COOKIE,
-//     userId,
-//     accountId
-//   );
-
-//   // 🔥 referenceId (VERY IMPORTANT)
-//   const referenceId = generateReferenceIdForDeposit();
-
-//   // 🔹 body (as per docs)
-//   const body = {
-//     amount: Number(amount),
-//     referenceId,
-//   };
-
-//   let response;
-
-//   try {
-//     const apiRes = await axios.post(url, body, { headers });
-//     response = apiRes.data;
-//   } catch (err) {
-//     console.error("❌ PI42 Deposit Error:", err?.response?.data || err.message);
-
-//     return next(
-//       new AppError(
-//         err?.response?.data?.message || "PI42 deposit failed",
-//         err?.response?.status || 500
-//       )
-//     );
-//   }
-
-//   if (!response) {
-//     return next(new AppError("Failed to deposit INR", 500));
-//   }
-
-//   try {
-//     await createDepositTransaction(
-//       id,           // pi42Account
-//       response,
-//       Number(amount),         // requested amount
-//       referenceId
-//     );
-//   } catch (saveErr) {
-//     console.error("❌ Failed to save deposit transaction to DB:", saveErr);
-//     // We still return success because deposit succeeded on Pi42 side
-//   }
-
-//   res.status(200).json({
-//     status: true,
-//     message: "INR deposited successfully",
-//     data: {
-//       referenceId,
-//       ...response,
-//     },
-//   });
-// });
 
 
 exports.depositINR = catchAsync(async (req, res, next) => {
@@ -237,83 +161,6 @@ exports.depositINR = catchAsync(async (req, res, next) => {
     },
   });
 });
-
-
-// exports.withdrawINR = catchAsync(async (req, res, next) => {
-//   const { amount } = req.body;
-
-//   // ✅ Everything comes from middleware now
-//   const { id, userId, accountId } = req.pi42Account;
-
-//   if (!amount) {
-//     return next(new AppError("amount is required", 400));
-//   }
-
-//   if (Number(amount) <= 0) {
-//     return next(new AppError("Amount must be greater than 0", 400));
-//   }
-
-//   const endpoint = `/v1/integration/withdraw-inr`;
-//   const url = `${process.env.PI42_PILOT_BASE_URL}${endpoint}`;
-
-//   // 🔹 headers
-//   const headers = buildHeaders(
-//     process.env.PARTNER_NAME,
-//     process.env.API_COOKIE,
-//     userId,
-//     accountId
-//   );
-
-//   // 🔥 referenceId (VERY IMPORTANT)
-//   const referenceId = generateReferenceIdForWithdrawl();
-
-//   // 🔹 body
-//   const body = {
-//     amount: Number(amount),
-//     referenceId,
-//   };
-
-//   let response;
-
-//   try {
-//     const apiRes = await axios.post(url, body, { headers });
-//     response = apiRes.data;
-//   } catch (err) {
-//     console.error("❌ PI42 Withdraw Error:", err?.response?.data || err.message);
-
-//     return next(
-//       new AppError(
-//         err?.response?.data?.message || "PI42 withdraw failed",
-//         err?.response?.status || 500
-//       )
-//     );
-//   }
-
-//   if (!response) {
-//     return next(new AppError("Failed to withdraw INR", 500));
-//   }
-
-//   try {
-//     await createWithdrawalTransaction(
-//       id,           // pi42Account
-//       response,
-//       Number(amount),         // requested amount
-//       referenceId
-//     );
-//   } catch (saveErr) {
-//     console.error("❌ Failed to save withdrawal transaction to DB:", saveErr);
-//     // We still return success because withdrawal request succeeded on Pi42 side
-//   }
-
-//   res.status(200).json({
-//     status: true,
-//     message: "INR withdrawn successfully",
-//     data: {
-//       referenceId,
-//       ...response,
-//     },
-//   });
-// });
 
 
 

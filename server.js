@@ -28,6 +28,19 @@ if (enableCoinswitchOrderSocket) {
   console.log(`CoinSwitch order socket disabled on instance: ${instanceName}`);
 }
 
+// ---- CoinSwitch order sync (cron) ----
+const enableCoinswitchOrderSync =
+  process.env.ENABLE_COINSWITCH_ORDER_SYNC === "true";
+let startCoinswitchOrderSync = null;
+let stopCoinswitchOrderSync = null;
+
+if (enableCoinswitchOrderSync) {
+  ({ startCoinswitchOrderSync, stopCoinswitchOrderSync } = require("./src/services/coinswitchOrderSyncService"));
+  console.log(`CoinSwitch order sync enabled on instance: ${instanceName}`);
+} else {
+  console.log(`CoinSwitch order sync disabled on instance: ${instanceName}`);
+}
+
 const apiKey = process.env.API_KEY;
 const secretKey = process.env.API_SECRET;
 
@@ -52,6 +65,9 @@ connectPi42Socket(); // Connect Pi42 Socket
 server.listen(Port, () => {
   if (connectCoinswitchOrderSocket) {
     connectCoinswitchOrderSocket();
+  }
+   if (startCoinswitchOrderSync) {
+    startCoinswitchOrderSync();
   }
   console.log(`🚀 Server running on port: ${Port}`);
   console.log(`📡 WebSocket available at ws://localhost:${Port}`);
@@ -142,6 +158,7 @@ server.listen(Port, () => {
 
 process.on("unhandledRejection", (err) => {
   console.log("❌ UNHANDLED REJECTION:", err.name, err.message);
+  if (stopCoinswitchOrderSync) stopCoinswitchOrderSync();
   server.close(() => {
     process.exit(1);
   });
@@ -150,6 +167,7 @@ process.on("unhandledRejection", (err) => {
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\n⏹️  Shutting down gracefully...");
+  if (stopCoinswitchOrderSync) stopCoinswitchOrderSync();
 
   server.close(() => {
     console.log("✅ Server closed");

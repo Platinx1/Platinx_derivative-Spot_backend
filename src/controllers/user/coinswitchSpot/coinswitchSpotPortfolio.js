@@ -84,11 +84,7 @@ exports.getUserPortfolioWithBalance = catchAsync(async (req, res, next) => {
 exports.getUserPortfolio = catchAsync(async (req, res, next) => {
   const { id: coinswitchAccountId } = req.coinswitchAccount;
 
-  const { 
-    user,
-    limit = 20, 
-    page = 1 
-  } = req.query;
+  const { limit = 20, page = 1 } = req.query;
 
   const query = { 
     coinswitchAccount: coinswitchAccountId,
